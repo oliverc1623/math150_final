@@ -3,8 +3,14 @@ title: "Survival_Analysis_Final"
 output: pdf_document
 ---
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 library(mosaic)
+library(readr)
+library(tidyverse)
+library(broom)
+library(survival)
+library(survminer)
+library(praise)
 ```
 
 
@@ -18,15 +24,17 @@ df <- df %>%
   select(group, dayslink, linkstatus, yrs_education, gender, age, alcohol, alcq_30)
 ```
 
+## Group Members
+
+Michael He and Oliver Chang
+
+## Exploratory Data Analysis
+
+In this exploratory data analysis, we are interested in exploring the relationship years of education, gender, age, alcoholic, and number of drinks in the past 30 days have on whether an individual connected to primary care. 
+
+Below is are statistics of our variables of interest. 
 ```{r}
 summary(df)
-```
-
-
-```{r}
-df %>% 
-  group_by(group) %>% 
-  ggplot() + geom_point(aes(x=dayslink, y=linkstatus, color=group))
 ```
 
 
@@ -37,14 +45,22 @@ ggsurvplot(care_fit, conf.int = T) +
 ```
 
 ```{r}
-care_fit <- survfit(Surv(dayslink, linkstatus) ~ gender, data=df)
-ggsurvplot(care_fit) + 
-  ggtitle("Survival Plot for HELP Treatment")
+ggsurvplot_facet(care_fit, df, facet.by = c("gender", "alcohol"), pval = TRUE)
 ```
 
+
 ```{r}
-care_fit <- survfit(Surv(dayslink, linkstatus) ~ alcohol, data=df)
-ggsurvplot(care_fit) + 
-  ggtitle("Survival Plot for HELP Treatment")
+df %>% 
+  select(age, linkstatus) %>% 
+  group_by(age, linkstatus) %>% 
+  summarise(count = n()) %>% 
+  ggplot() + geom_line(aes(x=age, y=count, group=linkstatus))
 ```
+
+## Someting New
+
+Investigation of the proportional hazards assumption
+
+Bootstrapping the survival model (what are the assumptions?  what do you conclude?)
+
 
