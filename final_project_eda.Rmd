@@ -4,6 +4,47 @@ output: pdf_document
 ---
 
 ```{r}
-df <- read_csv("https://pomona.box.com/s/nty3oxpb8db1y763l6uusxtq4gukbcev", na="*")
+library(mosaic)
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+df <- read_csv("HELPdata.csv", na="*")
+```
+
+```{r}
+df <- df %>%
+  mutate(yrs_education = as.numeric(a9), gender=a1, alcq_30 = as.numeric(alcq_30)) %>% 
+  select(group, dayslink, linkstatus, yrs_education, gender, age, alcohol, alcq_30)
+```
+
+```{r}
+summary(df)
+```
+
+
+```{r}
+df %>% 
+  group_by(group) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=linkstatus, color=group))
+```
+
+
+```{r}
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ group, data=df)
+ggsurvplot(care_fit, conf.int = T) + 
+  ggtitle("Survival Plot for HELP Treatment")
+```
+
+```{r}
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ gender, data=df)
+ggsurvplot(care_fit) + 
+  ggtitle("Survival Plot for HELP Treatment")
+```
+
+```{r}
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ alcohol, data=df)
+ggsurvplot(care_fit) + 
+  ggtitle("Survival Plot for HELP Treatment")
 ```
 
