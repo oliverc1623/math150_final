@@ -1,0 +1,83 @@
+---
+title: "Survival_Analysis_Final"
+output: pdf_document
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(mosaic)
+library(readr)
+library(tidyverse)
+library(broom)
+library(survival)
+library(survminer)
+library(praise)
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+df <- read_csv("HELPdata.csv", na="*")
+```
+
+```{r}
+df <- df %>%
+  mutate(yrs_education = as.numeric(a9), gender=a1, alcq_30 = as.numeric(alcq_30)) %>% 
+  select(group, dayslink, linkstatus, yrs_education, gender, age, alcohol, alcq_30)
+```
+
+## Group Members
+
+Michael He and Oliver Chang
+
+## Exploratory Data Analysis
+
+In this exploratory data analysis, we are interested in exploring the relationship years of education, gender, age, alcoholic, and number of drinks in the past 30 days have on whether an individual connected to primary care. 
+
+Below is are statistics of our variables of interest. 
+```{r}
+summary(df)
+```
+
+
+```{r}
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ group, data=df)
+ggsurvplot(care_fit, conf.int = T) + 
+  ggtitle("Survival Plot for HELP Treatment")
+```
+
+```{r}
+ggsurvplot_facet(care_fit, df, facet.by = c("gender", "alcohol"), pval = TRUE)
+```
+
+
+```{r}
+df %>% 
+  select(age, linkstatus) %>% 
+  group_by(age, linkstatus) %>% 
+  mutate(linkstatus = as.factor(linkstatus)) %>% 
+  summarise(count = n()) %>% 
+  ggplot() + geom_line(aes(x=age, y=count, group=linkstatus, color=linkstatus)) + geom_point(aes(x=age, y=count, group=linkstatus, color=linkstatus))
+```
+
+```{r}
+df %>% 
+  select(yrs_education, linkstatus) %>% 
+  group_by(yrs_education, linkstatus) %>% 
+  mutate(linkstatus = as.factor(linkstatus)) %>% 
+  summarise(count = n()) %>% 
+  ggplot() + geom_line(aes(x=yrs_education, y=count, group=linkstatus, color=linkstatus)) + geom_point(aes(x=yrs_education, y=count, group=linkstatus, color=linkstatus))
+```
+
+
+## Someting New
+
+Investigation of the proportional hazards assumption
+
+Bootstrapping the survival model (what are the assumptions?  what do you conclude?)
+
+Oliver will take on Bootstrapping the survival model. Bootstraping is a nonparametric technique that resamples the sampled data and samples from the resampled data. It is most useful for building confidence intervals without the assumption of the central limit theory. However, one important assumption is that the observations were randomly sampled. This holds true for this study as the paper mentions 235 observations were randomized into the help clinic. From bootstrapping we hope to estimate the true parameter of the population, which are the coefficients to our proportional hazard model. 
+
+One resource Oliver will use is [censboot](https://stat.ethz.ch/R-manual/R-patched/library/boot/html/censboot.html). Censboot is a function that applies variables bootstrap resampling on survial data. The censboot function references articles that further discuss Bootstraping a survival model. Papers from the [Journal of American Statiscial Association](https://www.jstor.org/stable/2290992?seq=1) and [International Statistics Institute](https://www-jstor-org.ccl.idm.oclc.org/stable/1403683?seq=8#metadata_info_tab_contents) will serve as good references to learn more about Bootstrapping. 
+
+One challenge in applying the bootstrap method in a survival analysis is making sure it works for the type given dataset. In past classes, Oliver has worked with bootstrapping before but never on time and censored dependent data. This challenge warrants further investigation in dataset transformation and the boot package. 
+
+
