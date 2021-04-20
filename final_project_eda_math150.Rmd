@@ -20,7 +20,7 @@ df <- read_csv("HELPdata.csv", na="*")
 
 ```{r}
 df <- df %>%
-  mutate(yrs_education = as.numeric(a9), gender=a1, alcq_30 = as.numeric(alcq_30)) %>% 
+  mutate(yrs_education = as.numeric(a9), gender=a1, alcq_30 = as.numeric(alcq_30)) %>%
   select(group, dayslink, linkstatus, yrs_education, gender, age, alcohol, alcq_30)
 ```
 
@@ -30,9 +30,9 @@ Michael He and Oliver Chang
 
 ## Exploratory Data Analysis
 
-In this exploratory data analysis, we are interested in exploring the relationship years of education, gender, age, alcoholic, and number of drinks in the past 30 days have on whether an individual connected to primary care. 
+In this exploratory data analysis, we are interested in exploring the relationship years of education, gender, age, alcoholic, and number of drinks in the past 30 days have on whether an individual connected to primary care.
 
-Below is are statistics of our variables of interest. 
+Below is are statistics of our variables of interest.
 ```{r}
 summary(df)
 ```
@@ -40,7 +40,7 @@ summary(df)
 
 ```{r}
 care_fit <- survfit(Surv(dayslink, linkstatus) ~ group, data=df)
-ggsurvplot(care_fit, conf.int = T) + 
+ggsurvplot(care_fit, conf.int = T) +
   ggtitle("Survival Plot for HELP Treatment")
 ```
 
@@ -50,34 +50,43 @@ ggsurvplot_facet(care_fit, df, facet.by = c("gender", "alcohol"), pval = TRUE)
 
 
 ```{r}
-df %>% 
-  select(age, linkstatus) %>% 
-  group_by(age, linkstatus) %>% 
-  mutate(linkstatus = as.factor(linkstatus)) %>% 
-  summarise(count = n()) %>% 
+df %>%
+  select(age, linkstatus) %>%
+  group_by(age, linkstatus) %>%
+  mutate(linkstatus = as.factor(linkstatus)) %>%
+  summarise(count = n()) %>%
   ggplot() + geom_line(aes(x=age, y=count, group=linkstatus, color=linkstatus)) + geom_point(aes(x=age, y=count, group=linkstatus, color=linkstatus))
 ```
 
 ```{r}
-df %>% 
-  select(yrs_education, linkstatus) %>% 
-  group_by(yrs_education, linkstatus) %>% 
-  mutate(linkstatus = as.factor(linkstatus)) %>% 
-  summarise(count = n()) %>% 
+df %>%
+  select(yrs_education, linkstatus) %>%
+  group_by(yrs_education, linkstatus) %>%
+  mutate(linkstatus = as.factor(linkstatus)) %>%
+  summarise(count = n()) %>%
   ggplot() + geom_line(aes(x=yrs_education, y=count, group=linkstatus, color=linkstatus)) + geom_point(aes(x=yrs_education, y=count, group=linkstatus, color=linkstatus))
 ```
 
 
-## Someting New
+## Something New
 
-Investigation of the proportional hazards assumption
+### Investigation of the proportional hazards assumption
 
-Bootstrapping the survival model (what are the assumptions?  what do you conclude?)
+Michael will investigate the assumptions about proportional hazards. Specifically, it will be about the cox.zph function in R.
 
-Oliver will take on Bootstrapping the survival model. Bootstraping is a nonparametric technique that resamples the sampled data and samples from the resampled data. It is most useful for building confidence intervals without the assumption of the central limit theory. However, one important assumption is that the observations were randomly sampled. This holds true for this study as the paper mentions 235 observations were randomized into the help clinic. From bootstrapping we hope to estimate the true parameter of the population, which are the coefficients to our proportional hazard model. 
+Resources to learn include [R Documentation](https://www.rdocumentation.org/packages/survival/versions/3.2-7/topics/cox.zph) for applying the funciton, [UCLA](https://stats.idre.ucla.edu/r/examples/asa/r-applied-survival-analysis-ch-6/) for further explanation, and application of this method in published studies, such as [this one](https://pubmed.ncbi.nlm.nih.gov/10619055/).
 
-One resource Oliver will use is [censboot](https://stat.ethz.ch/R-manual/R-patched/library/boot/html/censboot.html). Censboot is a function that applies variables bootstrap resampling on survial data. The censboot function references articles that further discuss Bootstraping a survival model. Papers from the [Journal of American Statiscial Association](https://www.jstor.org/stable/2290992?seq=1) and [International Statistics Institute](https://www-jstor-org.ccl.idm.oclc.org/stable/1403683?seq=8#metadata_info_tab_contents) will serve as good references to learn more about Bootstrapping. 
+ The cox.zph function tests every predictor's proportionality. It uses the transform command to create interactions with all the predictors. It is an extension of the coxph function in R and transforms the data using various forms, such as KM or rank. It is directly related to Schoenfeld residuals.
 
-One challenge in applying the bootstrap method in a survival analysis is making sure it works for the type given dataset. In past classes, Oliver has worked with bootstrapping before but never on time and censored dependent data. This challenge warrants further investigation in dataset transformation and the boot package. 
+The main challenges in this case are getting the cox.zph function to work and understanding Schoenfeld residuals. The other minor issue will be interpreting the zph graphics, as they look very different from KM curves or previous assignments.
 
 
+
+
+### Bootstrapping the survival model (what are the assumptions?  what do you conclude?)
+
+Oliver will take on Bootstrapping the survival model. Bootstraping is a nonparametric technique that resamples the sampled data and samples from the resampled data. It is most useful for building confidence intervals without the assumption of the central limit theory. However, one important assumption is that the observations were randomly sampled. This holds true for this study as the paper mentions 235 observations were randomized into the help clinic. From bootstrapping we hope to estimate the true parameter of the population, which are the coefficients to our proportional hazard model.
+
+One resource Oliver will use is [censboot](https://stat.ethz.ch/R-manual/R-patched/library/boot/html/censboot.html). Censboot is a function that applies variables bootstrap resampling on survial data. The censboot function references articles that further discuss Bootstraping a survival model. Papers from the [Journal of American Statiscial Association](https://www.jstor.org/stable/2290992?seq=1) and [International Statistics Institute](https://www-jstor-org.ccl.idm.oclc.org/stable/1403683?seq=8#metadata_info_tab_contents) will serve as good references to learn more about Bootstrapping.
+
+One challenge in applying the bootstrap method in a survival analysis is making sure it works for the type given dataset. In past classes, Oliver has worked with bootstrapping before but never on time and censored dependent data. This challenge warrants further investigation in dataset transformation and the boot package.
