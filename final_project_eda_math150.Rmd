@@ -245,6 +245,14 @@ df %>%
 
 Investigation of the proportional hazards assumption
 
+Michael will investigate the assumptions about proportional hazards. Specifically, it will be about the cox.zph function in R.
+
+Resources to learn include [R Documentation](https://www.rdocumentation.org/packages/survival/versions/3.2-7/topics/cox.zph) for applying the funciton, [UCLA](https://stats.idre.ucla.edu/r/examples/asa/r-applied-survival-analysis-ch-6/) for further explanation, and application of this method in published studies, such as [this one](https://pubmed.ncbi.nlm.nih.gov/10619055/).
+
+The cox.zph function tests every predictor's proportionality. It uses the transform command to create interactions with all the predictors. It is an extension of the coxph function in R and transforms the data using various forms, such as KM or rank. It is directly related to Schoenfeld residuals.
+
+The main challenges in this case are getting the cox.zph function to work and understanding Schoenfeld residuals. The other minor issue will be interpreting the zph graphics, as they look very different from KM curves or previous assignments.
+
 Bootstrapping the survival model (what are the assumptions?  what do you conclude?)
 
 Oliver will take on Bootstrapping the survival model. Bootstraping is a nonparametric technique that resamples the sampled data and samples from the resampled data. It is most useful for building confidence intervals without the assumption of the central limit theory. However, one important assumption is that the observations were randomly sampled. This holds true for this study as the paper mentions 235 observations were randomized into the help clinic. From bootstrapping we hope to estimate the true parameter of the population, which are the coefficients to our proportional hazard model. 
