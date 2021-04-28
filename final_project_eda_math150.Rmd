@@ -20,8 +20,35 @@ df <- read_csv("HELPdata.csv", na="*")
 
 ```{r}
 df <- df %>%
-  mutate(yrs_education = as.numeric(a9), gender=a1, alcq_30 = as.numeric(alcq_30)) %>% 
-  select(group, dayslink, linkstatus, yrs_education, gender, age, alcohol, alcq_30)
+  mutate(yrs_education = as.numeric(a9), 
+         gender=a1, 
+         alcq_30 = as.numeric(alcq_30), 
+         marriage = as.factor(a10), 
+         employment = as.factor(a13), 
+         income = as.factor(case_when(a18 == 1 ~ "<5000", 
+                                      a18 == 2 ~ "5000-10000", 
+                                      a18 == 3 ~ "11000-19000",
+                                      a18 == 4 ~ "20000-29000",
+                                      a18 == 5 ~ "30000-39000",
+                                      a18 == 6 ~ "40000-49000",
+                                      a18 == 7 ~ "50000+")),
+         income_1yr = as.factor(case_when(a18_rec1 == 0 ~ "$19,000", 
+                                      a18_rec1 == 1 ~ "$20,000-$49,000", 
+                                      a18_rec1 == 2 ~ "$50,000")), 
+         any_util = as.factor(case_when(any_util == 0 ~ "No", any_util == 1 ~ "Yes")), 
+         attempted_suicide = as.factor(case_when(g1c == 0 ~ "No", g1c == 1 ~ "Yes")), 
+         employment = as.factor(
+           case_when(a13 == 1 ~ "Full time", 
+                     a13 == 2 ~ "Part time",
+                     a13 == 3 ~ "Student", 
+                     a13 == 4 ~ "Unemployed",
+                     a13 == 5 ~ "Ctrl_envir")), 
+         homeless = as.factor(case_when(homeless == 0 ~ "No", homeless == 1 ~ "Yes")),
+         hs_grad = as.factor(case_when(hs_grad == 0 ~ "No", hs_grad == 1 ~ "Yes")),
+         group = as.factor(case_when(group == 0 ~ "Control", group == 1 ~ "Clinic")),
+         linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", linkstatus == 1 ~ "Linked to Primary Care")),
+         alcohol = as.factor(case_when(alcohol == 0 ~ "Not First Drug", alcohol == 1 ~ "First Drug Alcohol"))) %>% 
+  select(group, dayslink, linkstatus, yrs_education, gender, age, alcohol, alcq_30, marriage, employment, income, income_1yr, any_util, attempted_suicide, homeless, hs_grad)
 ```
 
 ## Group Members
@@ -49,23 +76,169 @@ ggsurvplot_facet(care_fit, df, facet.by = c("gender", "alcohol"), pval = TRUE)
 ```
 
 
-```{r}
+```{r, message=FALSE}
+df %>% 
+  select(age, linkstatus) %>% 
+  group_by(age, linkstatus) %>% 
+  filter(linkstatus == 1)
+  
+
+df %>% 
+  select(age, linkstatus) %>% 
+  group_by(age, linkstatus) %>% 
+  mutate(linkstatus = as.factor(linkstatus)) %>% 
+  summarise(count = n()/347) %>% 
+  ggplot() + geom_line(aes(x=age, y=count, group=linkstatus, color=linkstatus)) + geom_point(aes(x=age, y=count, group=linkstatus, color=linkstatus)) + ggtitle("Prorption of Link Status Given Age") + ylab("Proportion")
+
 df %>% 
   select(age, linkstatus) %>% 
   group_by(age, linkstatus) %>% 
   mutate(linkstatus = as.factor(linkstatus)) %>% 
   summarise(count = n()) %>% 
-  ggplot() + geom_line(aes(x=age, y=count, group=linkstatus, color=linkstatus)) + geom_point(aes(x=age, y=count, group=linkstatus, color=linkstatus))
+  ggplot() + geom_line(aes(x=age, y=count, group=linkstatus, color=linkstatus)) + geom_point(aes(x=age, y=count, group=linkstatus, color=linkstatus)) + ggtitle("Prorption of Link Status Given Age") + ylab("Count")
 ```
 
-```{r}
+```{r, message=FALSE}
 df %>% 
   select(yrs_education, linkstatus) %>% 
   group_by(yrs_education, linkstatus) %>% 
   mutate(linkstatus = as.factor(linkstatus)) %>% 
-  summarise(count = n()) %>% 
+  summarise(count = n()/347) %>% 
   ggplot() + geom_line(aes(x=yrs_education, y=count, group=linkstatus, color=linkstatus)) + geom_point(aes(x=yrs_education, y=count, group=linkstatus, color=linkstatus))
 ```
+
+More EDA
+
+```{r}
+df
+```
+
+```{r}
+df %>% 
+  select(gender, age) %>% 
+  group_by(age, gender) %>% 
+  summarise(count = n()) %>% 
+  mutate(gender = as.factor(gender)) %>% 
+  ggplot() + geom_line(aes(x=age, y=count, color=gender))
+
+df %>% 
+  select(gender, alcohol) %>% 
+  mutate(gender_str = as.factor(case_when(gender == 1 ~ "Male", gender == 2 ~ "Female"))) %>% 
+  mutate(alcohol_str = as.factor(case_when(alcohol == 0 ~ "Not First Drug", alcohol == 1 ~ "First Drug Alcohol"))) %>% 
+  ggplot() + geom_bar(aes(x=gender_str, fill=alcohol), position = "fill") + xlab("Gender") + ylab("Proportion")
+
+df %>% 
+  select(gender, alcohol) %>% 
+  mutate(gender_str = as.factor(case_when(gender == 1 ~ "Male", gender == 2 ~ "Female"))) %>% 
+  mutate(alcohol_str = as.factor(case_when(alcohol == 0 ~ "Not First Drug", alcohol == 1 ~ "First Drug Alcohol"))) %>% 
+  ggplot() + geom_bar(aes(x=gender_str, fill=alcohol)) + xlab("Gender") + ylab("Number of Observations")
+```
+
+Analyze alcq_30
+```{r}
+df %>% 
+  select(alcq_30) %>% 
+  group_by(alcq_30) %>% 
+  summarise(count = n()) %>% 
+  ggplot + geom_histogram(aes(x=alcq_30))
+```
+Looking at the histogram of the number of drinks past 30 days, we see many outliers after 100 drinks. 
+
+```{r, message=FALSE}
+hist(df$yrs_education)
+
+df %>% 
+  select(yrs_education, alcohol) %>% 
+  mutate(alcohol_str = as.factor(case_when(alcohol == 0 ~ "Not First Drug", alcohol == 1 ~ "First Drug Alcohol")))  %>% 
+  group_by(yrs_education, alcohol_str) %>% 
+  summarise(count = n()) %>% 
+  ggplot + geom_bar(aes(x=yrs_education, y=count), stat="identity") + facet_grid(alcohol_str ~ .)
+```
+
+```{r, message=FALSE}
+df %>% 
+  select(age, alcohol) %>% 
+  mutate(alcohol_str = as.factor(case_when(alcohol == 0 ~ "Not First Drug", alcohol == 1 ~ "First Drug Alcohol")))  %>% 
+  group_by(age, alcohol_str) %>% 
+  summarise(count = n()) %>% 
+  ggplot + geom_bar(aes(x=age, y=count), stat="identity") + facet_grid(alcohol_str ~ .)
+```
+
+```{r}
+df %>% 
+  select(age, gender) %>% 
+  mutate(gender_str = as.factor(case_when(gender == 1 ~ "Male", gender == 2 ~ "Female"))) %>% 
+  group_by(age, gender_str) %>% 
+  summarise(count = n()) %>% 
+  ggplot + geom_bar(aes(x=age, y=count), stat="identity") + facet_grid(gender_str ~ .)
+
+df %>% 
+  select(age, gender) %>% 
+  mutate(gender_str = as.factor(case_when(gender == 1 ~ "Male", gender == 2 ~ "Female"))) %>% 
+  group_by(age, gender_str) %>% 
+  summarise(count = n()) %>% 
+  ggplot + geom_line(aes(x=age, y=count,color=gender_str)) + geom_point(aes(x=age, y=count,color=gender_str)) 
+```
+
+More EDA
+```{r}
+df
+```
+
+```{r}
+df %>% 
+  select(group, marriage, linkstatus) %>% 
+  ggplot() + geom_bar(aes(x=marriage)) + facet_grid(vars(group), vars(linkstatus))
+```
+
+```{r}
+df %>% 
+  select(group, employment, linkstatus) %>% 
+  ggplot() + geom_bar(aes(x=employment)) + facet_grid(vars(group), vars(linkstatus))
+```
+
+```{r}
+df %>% 
+  select(group, hs_grad, linkstatus) %>% 
+  drop_na() %>% 
+  ggplot() + geom_bar(aes(x=hs_grad)) + facet_grid(vars(group), vars(linkstatus))
+
+df %>% 
+  select(group, yrs_education, linkstatus) %>% 
+  drop_na() %>% 
+  ggplot() + geom_bar(aes(x=yrs_education)) + facet_grid(vars(group), vars(linkstatus))
+
+plot(df$hs_grad)
+```
+
+```{r}
+par(mfrow=c(2,2))
+
+df %>% 
+  select(income, employment) %>% 
+  ggplot() + geom_bar(aes(x=income, fill=employment)) + coord_flip()
+
+df %>% 
+  select(income_1yr, employment) %>% 
+  ggplot() + geom_bar(aes(x=income_1yr, fill=employment)) + coord_flip()
+```
+
+```{r}
+df %>% 
+  select(income, employment, alcohol) %>% 
+  ggplot() + geom_bar(aes(x=income, fill=employment)) + facet_grid(vars(alcohol)) + coord_flip()
+
+df %>% 
+  select(income, employment, alcohol, group) %>% 
+  ggplot() + geom_bar(aes(x=income, fill=employment)) + facet_grid(vars(alcohol), vars(group)) + coord_flip()
+
+df %>% 
+  select(income, employment, alcohol, group, linkstatus) %>% 
+  ggplot() + geom_bar(aes(x=income, fill=employment)) + facet_grid(vars(alcohol), vars(linkstatus)) + coord_flip()
+```
+
+## Cov PH Model
+
 
 
 ## Someting New
