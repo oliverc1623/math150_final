@@ -18,7 +18,7 @@ library(praise)
 df <- read_csv("HELPdata.csv", na="*")
 ```
 
-```{r}
+```{r, message=FALSE}
 df <- df %>%
   mutate(yrs_education = as.numeric(a9), 
          gender=a1, 
@@ -46,9 +46,20 @@ df <- df %>%
          homeless = as.factor(case_when(homeless == 0 ~ "No", homeless == 1 ~ "Yes")),
          hs_grad = as.factor(case_when(hs_grad == 0 ~ "No", hs_grad == 1 ~ "Yes")),
          group = as.factor(case_when(group == 0 ~ "Control", group == 1 ~ "Clinic")),
-         linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", linkstatus == 1 ~ "Linked to Primary Care")),
-         alcohol = as.factor(case_when(alcohol == 0 ~ "Not First Drug", alcohol == 1 ~ "First Drug Alcohol"))) %>% 
-  select(group, dayslink, linkstatus, yrs_education, gender, age, alcohol, alcq_30, marriage, employment, income, income_1yr, any_util, attempted_suicide, homeless, hs_grad)
+         # linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", linkstatus == 1 ~ "Linked to Primary Care")),
+         alcohol = as.factor(case_when(alcohol == 0 ~ "Not First Drug", alcohol == 1 ~ "First Drug Alcohol")),
+         money_spent_on_alcohol = as.numeric(h16a),
+         mh_index = as.numeric(mh),
+         num_med_problems = as.numeric(d3),
+         num_hospitilizations = as.numeric(d1),
+         bothered_by_med = as.factor(case_when(d4 == 0 ~ "Not at all",
+                                               d4 == 1 ~ "Slightly",
+                                               d4 == 2 ~ "Moderately",
+                                               d4 == 3 ~ "Considerably",
+                                               d4 == 4 ~ "Extremely")),
+         bothered = as.factor(case_when(d4_rec == 0 ~ "No",
+                                        d4_rec == 1 ~ "Yes"))) %>% 
+  select(group, dayslink, linkstatus, yrs_education, gender, age, alcohol, alcq_30, marriage, employment, income, income_1yr, any_util, attempted_suicide, homeless, hs_grad, money_spent_on_alcohol, mh_index, num_med_problems, num_hospitilizations,bothered_by_med, bothered)
 ```
 
 ## Group Members
@@ -237,9 +248,122 @@ df %>%
   ggplot() + geom_bar(aes(x=income, fill=employment)) + facet_grid(vars(alcohol), vars(linkstatus)) + coord_flip()
 ```
 
-## Cov PH Model
+```{r}
+df %>% 
+  select(group, linkstatus, money_spent_on_alcohol) %>% 
+  ggplot()  + geom_point(aes(x=linkstatus, y=money_spent_on_alcohol, color=group), position = position_jitter(w = 0.05, h = .05))
+```
+
+```{r}
+df %>% 
+  select(group, linkstatus, money_spent_on_alcohol, mh_index) %>% 
+  ggplot() + geom_point(aes(x=mh_index, y=money_spent_on_alcohol, color=group)) + facet_grid(vars(linkstatus)) 
+```
+
+```{r}
+df %>% 
+  select(group, linkstatus, mh_index, yrs_education) %>% 
+  ggplot() + geom_point(aes(x=mh_index, y=yrs_education, color=group)) + facet_grid(vars(linkstatus)) 
+```
+
+```{r}
+df %>% 
+  select(group, linkstatus, dayslink, mh_index, yrs_education) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=mh_index, color=group)) + facet_grid(vars(linkstatus)) 
+```
+```{r}
+df
+```
+
+```{r}
+df %>% 
+  select(group, linkstatus, dayslink, age, yrs_education) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=age, color=group)) + facet_grid(vars(linkstatus)) 
+```
+
+```{r}
+df %>% 
+  select(group, linkstatus, dayslink, alcohol, yrs_education) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=alcohol, color=group)) + facet_grid(vars(linkstatus)) 
+
+df %>% 
+  select(group, linkstatus, dayslink, alcq_30, yrs_education) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=alcq_30, color=group)) + facet_grid(vars(linkstatus)) 
+
+df %>% 
+  select(group, linkstatus, dayslink, marriage, yrs_education) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=marriage, color=group)) + facet_grid(vars(linkstatus)) 
+
+df %>% 
+  select(group, linkstatus, dayslink, employment, yrs_education) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=employment, color=group)) + facet_grid(vars(linkstatus)) 
+
+df %>% 
+  select(group, linkstatus, dayslink, income, yrs_education) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=income, color=group)) + facet_grid(vars(linkstatus)) 
+
+df %>% 
+  select(group, linkstatus, dayslink, income, mh_index, attempted_suicide) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=mh_index, color=group)) + facet_grid(vars(attempted_suicide), vars(linkstatus)) 
+
+df %>% 
+  select(group, linkstatus, dayslink, income, mh_index, attempted_suicide, any_util) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=any_util, color=group)) + facet_grid(vars(linkstatus)) 
+
+```
+
+```{r}
+df %>% 
+  select(group, linkstatus, dayslink, num_med_problems, mh_index, attempted_suicide) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=num_med_problems, color=group)) + facet_grid(vars(linkstatus)) + ggtitle("Number of Medical Problems by Days Separated by Success")
+
+df %>% 
+  select(group, linkstatus, dayslink, num_hospitilizations, mh_index, attempted_suicide) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=num_hospitilizations, color=group)) + facet_grid(vars(linkstatus)) 
+
+df %>% 
+  select(group, linkstatus, dayslink, bothered_by_med, mh_index, attempted_suicide) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=bothered_by_med, color=group)) + facet_grid(vars(linkstatus)) 
+
+```
 
 
+## Cox PH Model
+
+The explanatory variables we want to use are number of medical problems, gender, first drug alcohol, treatment, and control. 
+
+First we will show the survival curves for just the treatment and control groups.
+```{r}
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ group, data=df)
+ggsurvplot(care_fit, conf.int = T, fun="cloglog") + 
+  ggtitle("Survival Plot for HELP Treatment")
+
+coxph(Surv(dayslink, linkstatus) ~ group, data=df)
+```
+The Cox-PH model for just the treatment group tells us that a unit increase in treatment to control groups (0 -> 1) changes the factor of survival by $e^{-1.6415} = 0.1936893$. 
+```{r}
+cox.zph(coxph(Surv(dayslink, linkstatus) ~ group, data=df))
+```
+Furthermore, the cox.zph shows a p-values of 0.0064 which is less than 0.05. This indicates a violation of proportional hazards.
+
+```{r}
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ group + num_med_problems, data=df)
+ggsurvplot(care_fit, conf.int = T, fun="cloglog") + 
+  ggtitle("Survival Plot for HELP Treatment")
+
+coxph(Surv(dayslink, linkstatus) ~ group  + num_med_problems, data=df)
+```
+
+
+
+```{r}
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ group, data=df)
+
+ggsurvplot(care_fit, conf.int = T) + 
+  ggtitle("Survival Plot for HELP Treatment")
+
+coxph(Surv(dayslink, linkstatus) ~ group, data=df)
+```
 
 ## Someting New
 
