@@ -302,20 +302,38 @@ df %>%
   select(group, linkstatus, dayslink, income, yrs_education) %>% 
   ggplot() + geom_point(aes(x=dayslink, y=income, color=group)) + facet_grid(vars(linkstatus)) 
 
-df %>% 
-  select(group, linkstatus, dayslink, income, mh_index, attempted_suicide) %>% 
-  ggplot() + geom_point(aes(x=dayslink, y=mh_index, color=group)) + facet_grid(vars(attempted_suicide), vars(linkstatus)) 
+
 
 df %>% 
   select(group, linkstatus, dayslink, income, mh_index, attempted_suicide, any_util) %>% 
   ggplot() + geom_point(aes(x=dayslink, y=any_util, color=group)) + facet_grid(vars(linkstatus)) 
 
-```
+df %>% 
+  select(group, linkstatus, dayslink, yrs_education, mh_index, attempted_suicide, any_util) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=yrs_education, color=group)) + facet_grid(vars(linkstatus)) 
+
+``` 
+
 
 ```{r}
 df %>% 
+  mutate(linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", linkstatus == 1 ~ "Linked to Primary Care"))) %>% 
+  select(group, linkstatus, dayslink, income, mh_index, attempted_suicide) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=mh_index, color=linkstatus)) + facet_grid(vars(attempted_suicide), vars(group)) + ylab("Mental Health Index") + xlab("Time") + ggtitle("Mental Health Index Grouped by Attemped Suicide and Study Response")
+```
+
+```{r}
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ group, data=df)
+
+ggsurvplot_facet(care_fit, df, facet.by = c("", "attempted_suicide"), pval = TRUE)
+```
+
+
+```{r}
+df %>% 
+  mutate(linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", linkstatus == 1 ~ "Linked to Primary Care"))) %>% 
   select(group, linkstatus, dayslink, num_med_problems, mh_index, attempted_suicide) %>% 
-  ggplot() + geom_point(aes(x=dayslink, y=num_med_problems, color=group)) + facet_grid(vars(linkstatus)) + ggtitle("Number of Medical Problems by Days Separated by Success")
+  ggplot() + geom_point(aes(x=dayslink, y=num_med_problems, color=group)) + facet_grid(vars(linkstatus)) + ggtitle("Number of Medical Problems by Days Separated by Success") + ylab("Numner of Medical Problems")
 
 df %>% 
   select(group, linkstatus, dayslink, num_hospitilizations, mh_index, attempted_suicide) %>% 
@@ -353,8 +371,6 @@ ggsurvplot(care_fit, conf.int = T, fun="cloglog") +
 
 coxph(Surv(dayslink, linkstatus) ~ group  + num_med_problems, data=df)
 ```
-
-
 
 ```{r}
 care_fit <- survfit(Surv(dayslink, linkstatus) ~ group, data=df)

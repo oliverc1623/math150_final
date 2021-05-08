@@ -1,0 +1,235 @@
+---
+title: "CoxPHModel"
+output: pdf_document
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(mosaic)
+library(readr)
+library(tidyverse)
+library(broom)
+library(survival)
+library(survminer)
+library(praise)
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+df <- read_csv("HELPdata.csv", na="*")
+```
+
+```{r, message=FALSE}
+df <- df %>%
+  mutate(yrs_education = as.numeric(a9), 
+         gender=a1, 
+         alcq_30 = as.numeric(alcq_30), 
+         marriage = as.factor(a10), 
+         employment = as.factor(a13), 
+         income = as.factor(case_when(a18 == 1 ~ "<5000", 
+                                      a18 == 2 ~ "5000-10000", 
+                                      a18 == 3 ~ "11000-19000",
+                                      a18 == 4 ~ "20000-29000",
+                                      a18 == 5 ~ "30000-39000",
+                                      a18 == 6 ~ "40000-49000",
+                                      a18 == 7 ~ "50000+")),
+         income_1yr = as.factor(case_when(a18_rec1 == 0 ~ "$19,000", 
+                                      a18_rec1 == 1 ~ "$20,000-$49,000", 
+                                      a18_rec1 == 2 ~ "$50,000")), 
+         any_util = as.factor(case_when(any_util == 0 ~ "No", any_util == 1 ~ "Yes")), 
+         attempted_suicide = as.factor(case_when(g1c == 0 ~ "No", g1c == 1 ~ "Yes")), 
+         employment = as.factor(
+           case_when(a13 == 1 ~ "Full time", 
+                     a13 == 2 ~ "Part time",
+                     a13 == 3 ~ "Student", 
+                     a13 == 4 ~ "Unemployed",
+                     a13 == 5 ~ "Ctrl_envir")), 
+         homeless = as.factor(case_when(homeless == 0 ~ "No", homeless == 1 ~ "Yes")),
+         hs_grad = as.factor(case_when(hs_grad == 0 ~ "No", hs_grad == 1 ~ "Yes")),
+         group = as.factor(case_when(group == 0 ~ "Control", group == 1 ~ "Clinic")),
+         # linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", linkstatus == 1 ~ "Linked to Primary Care")),
+         alcohol = as.factor(case_when(alcohol == 0 ~ "Not First Drug", alcohol == 1 ~ "First Drug Alcohol")),
+         money_spent_on_alcohol = as.numeric(h16a),
+         mh_index = as.numeric(mh),
+         num_med_problems = as.numeric(d3),
+         num_hospitilizations = as.numeric(d1),
+         bothered_by_med = as.factor(case_when(d4 == 0 ~ "Not at all",
+                                               d4 == 1 ~ "Slightly",
+                                               d4 == 2 ~ "Moderately",
+                                               d4 == 3 ~ "Considerably",
+                                               d4 == 4 ~ "Extremely")),
+         bothered = as.factor(case_when(d4_rec == 0 ~ "No",
+                                        d4_rec == 1 ~ "Yes"))) %>% 
+  select(group, dayslink, linkstatus, yrs_education, gender, age, alcohol, alcq_30, marriage, employment, income, income_1yr, any_util, attempted_suicide, homeless, hs_grad, money_spent_on_alcohol, mh_index, num_med_problems, num_hospitilizations,bothered_by_med, bothered)
+```
+
+```{r}
+df %>% 
+  mutate(linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", linkstatus == 1 ~ "Linked to Primary Care"))) %>% 
+  select(group, linkstatus, dayslink, income, mh_index, attempted_suicide) %>% 
+  ggplot() + geom_point(aes(x=dayslink, y=mh_index, color=linkstatus)) + facet_grid(vars(attempted_suicide), vars(group)) + ylab("Mental Health Index") + xlab("Time") + ggtitle("Mental Health Index Grouped by Attemped Suicide and Study Response")
+```
+
+## Cox PH Model
+
+The explanatory variables we want to use are number of medical problems, gender, age, first drug alcohol, treatment, mental health index, and attempted suicide, and control. 
+
+First we will show the survival curves for just the treatment and control groups.
+```{r}
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ group + employment, data=df)
+ggsurvplot(care_fit, conf.int = F, fun="cloglog") + 
+  ggtitle("Survival Plot for HELP Treatment")
+
+coxph(Surv(dayslink, linkstatus) ~ group, data=df)
+```
+The Cox-PH model for just the treatment group tells us that a unit increase in treatment to control groups (0 -> 1) changes the factor of survival by $e^{-1.6415} = 0.1936893$.
+
+```{r}
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ group + attempted_suicide, data=df)
+ggsurvplot(care_fit, conf.int = T, fun="cloglog") + 
+  ggtitle("Survival Plot for HELP Treatment")
+coxph(Surv(dayslink, linkstatus) ~ group + attempted_suicide, data=df)
+coxph(Surv(dayslink, linkstatus) ~ group, data=df) %>% glance()
+base_loglik <- -683.2197	
+```
+
+Next we'll compute the drop-in-deviance test to determine if attempted suicide should be included in our model.
+
+$G = 2*(logLik_{bigger model} - logLik_{smaller model})$
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + attempted_suicide, data=df) %>% glance()
+G = 2*(-683.0351 - base_loglik)
+1-pchisq(G, 1)
+```
+The change in deviance is 0.3692, $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.5434407, which is greater than 0.05. We fail to reject the null hypothesis and do not need type in the model. 
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + mh_index, data=df) %>% glance()
+G = 2*(-683.1243 - base_loglik)
+1-pchisq(G, 1)
+```
+The change in deviance is 0.1908, $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.6622516, which is greater than 0.05. We fail to reject the null hypothesis and do not need type in the model. 
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + gender, data=df) %>% glance()
+G = 2*(-681.652 - base_loglik)
+1-pchisq(G, 1)
+```
+The change in deviance is 3.1354, $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.07660959, which is greater than 0.05. Note that the p-value is close to 0.05, which suggests that there could be little evidence. We fail to reject the null hypothesis and do not need type in the model. 
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + alcohol, data=df) %>% glance()
+G = 2*(-679.0874 - base_loglik)
+1-pchisq(G, 1)
+```
+The change in deviance is [1] 8.2646. $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.004042557, which is less than 0.05. We reject the null hypothesis that $\gamma=0$ in favor of $H_a: \gamma \ne 0$ and should include first drink alcohol in the model. 
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + num_med_problems, data=df) %>% glance()
+G = 2*(-681.4424 - base_loglik)
+1-pchisq(G, 1)
+```
+We see that the p-value for the additive model for treatment groups and the number of medical problems is insignificant (0.05938062). Note that the additive model 
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + alcohol, data=df) %>% glance()
+base_loglik_alc <- -679.0874 # update base loglikelihood for future drop-in-deviance tests
+coxph(Surv(dayslink, linkstatus) ~ group + alcohol + num_med_problems, data=df) %>% glance()
+G = 2*(-677.4701 - base_loglik_alc)
+1-pchisq(G, 1)
+```
+The p-value is 0.072. This does not suggest evidence to reject the null hypothesis that $\gamma = 0.$
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + alcohol + gender, data=df) %>% glance()
+G = 2*(-678.1924 - base_loglik_alc)
+1-pchisq(G, 1)
+```
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + alcohol + mh_index, data=df) %>% glance()
+G = 2*(-678.8862 - base_loglik_alc)
+1-pchisq(G, 1)
+```
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + alcohol + attempted_suicide, data=df) %>% glance()
+G = 2*(-678.9307 - base_loglik_alc)
+1-pchisq(G, 1)
+```
+
+**** to use later ****
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + alcohol, data=df) %>% tidy()
+```
+Explanatory variables we want to use are gender, age, income, employment, homeless, and hs_grad. 
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + age, data=df) %>% glance()
+G = 2*(-679.8128 - base_loglik)
+1-pchisq(G, 1)
+```
+0.009045607 < 0.05. We reject the null hypothesis and should include age. 
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol, data=df) %>% glance()
+G = 2*(-677.0938 - -679.8128)
+1-pchisq(G, 1)
+```
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + employment, data=df) %>% glance()
+G = 2*(-675.4454	- -677.0938)
+1-pchisq(G, 1)
+```
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + homeless, data=df) %>% glance()
+G = 2*(-677.0244 - 	-677.0938	)
+1-pchisq(G, 1)
+```
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income, data=df) %>% glance()
+G = 2*(-661.2074 - 	-677.0938)
+1-pchisq(G, 1)
+```
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education, data=df) %>% glance()
+G = 2*(-651.3298 - -661.2074)
+1-pchisq(G, 1)
+
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education, data=df) 
+```
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education + hs_grad, data=df) %>% glance()
+G = 2*(-649.1222 - -651.3298)
+1-pchisq(G, 1)
+```
+After running the drop-in-deviance tests, we found age, alcohol, income, years in education, and high school graduate to be significant. Based on Occam's Razor, we are interested in picking a simpler model. Thus, we will proceed with Backward Selection. 
+
+*** 5/8/21: we built a cox ph model using the step-wise method. The model below includes all the variables that passed the drop-in-deviance tests
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education + hs_grad, data=df) 
+
+cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education + hs_grad, data=df))
+
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ group + alcohol, data=df)
+ggsurvplot(care_fit, conf.int = F, fun="cloglog") + 
+  ggtitle("Survival Plot for HELP Treatment")
+
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ group + income, data=df)
+ggsurvplot(care_fit, conf.int = F, fun="cloglog") + 
+  ggtitle("Survival Plot for HELP Treatment")
+
+care_fit <- survfit(Surv(dayslink, linkstatus) ~ group + hs_grad, data=df)
+ggsurvplot(care_fit, conf.int = F, fun="cloglog") + 
+  ggtitle("Survival Plot for HELP Treatment")
+```
+
+```{r}
+length(df$yrs_education)
+df %>% select(yrs_education) %>% drop_na()
+```
+
+
