@@ -160,11 +160,43 @@ drop_in_dev <- function(smallmodel, bigmodel, df){
 
 ### Medical Explanatory Variables
 
+We first consider the variable, attempted suicide. 
 ```{r}
 full_model <- coxph(Surv(dayslink, linkstatus) ~ group + attempted_suicide, data=df) %>% glance()
 restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group, data=df) %>% glance()
 drop_in_dev(restricted_model, full_model, 1)
 ```
+The change in deviance is 0.3692, $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.543385, which is greater than 0.05. We fail to reject the null hypothesis and do not need type in the model. 
+
+Next, mental health index. 
+```{r}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + mh_index, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+The change in deviance is 0.1908, $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.6622516, which is greater than 0.05. We fail to reject the null hypothesis and do not need type in the model. 
+
+```{r}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + gender, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+The change in deviance is 3.1354, $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.07660959, which is greater than 0.05. Note that the p-value is close to 0.05, which suggests that there could be little evidence. We fail to reject the null hypothesis and do not need type in the model. 
+
+```{r}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+The change in deviance is [1] 8.2646. $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.004042557, which is less than 0.05. We reject the null hypothesis that $\gamma=0$ in favor of $H_a: \gamma \ne 0$ and should include first drink alcohol in the model. 
+
+```{r}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + num_med_problems + alcohol, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+We see that the p-value for the additive model for treatment groups and the number of medical problems is insignificant (0.07209521). Note that the p-value is relatively close to 0.05, but do not include number of medical problems because we aim to produce the simplest model. 
+
 
 
 ### Socioeconomic Explanatory Variables
