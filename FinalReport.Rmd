@@ -71,19 +71,25 @@ df <- df %>%
          income_1yr = as.factor(case_when(a18_rec1 == 0 ~ "$19,000",
                                       a18_rec1 == 1 ~ "$20,000-$49,000",
                                       a18_rec1 == 2 ~ "$50,000")),
-         any_util = as.factor(case_when(any_util == 0 ~ "No", any_util == 1 ~ "Yes")),
-         attempted_suicide = as.factor(case_when(g1c == 0 ~ "No", g1c == 1 ~ "Yes")),
+         any_util = as.factor(case_when(any_util == 0 ~ "No", 
+                                        any_util == 1 ~ "Yes")),
+         attempted_suicide = as.factor(case_when(g1c == 0 ~ "No", 
+                                                 g1c == 1 ~ "Yes")),
          employment = as.factor(
            case_when(a13 == 1 ~ "Full time",
                      a13 == 2 ~ "Part time",
                      a13 == 3 ~ "Student",
                      a13 == 4 ~ "Unemployed",
                      a13 == 5 ~ "Ctrl_envir")),
-         homeless = as.factor(case_when(homeless == 0 ~ "No", homeless == 1 ~ "Yes")),
-         hs_grad = as.factor(case_when(hs_grad == 0 ~ "No", hs_grad == 1 ~ "Yes")),
-         group = as.factor(case_when(group == 0 ~ "Control", group == 1 ~ "Clinic")),
+         homeless = as.factor(case_when(homeless == 0 ~ "No", 
+                                        homeless == 1 ~ "Yes")),
+         hs_grad = as.factor(case_when(hs_grad == 0 ~ "No", 
+                                       hs_grad == 1 ~ "Yes")),
+         group = as.factor(case_when(group == 0 ~ "Control", 
+                                     group == 1 ~ "Clinic")),
          # linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", linkstatus == 1 ~ "Linked to Primary Care")),
-         alcohol = as.factor(case_when(alcohol == 0 ~ "Not First Drug", alcohol == 1 ~ "First Drug Alcohol")),
+         alcohol = as.factor(case_when(alcohol == 0 ~ "Not First Drug", 
+                                       alcohol == 1 ~ "First Drug Alcohol")),
          money_spent_on_alcohol = as.numeric(h16a),
          mh_index = as.numeric(mh),
          num_med_problems = as.numeric(d3),
@@ -95,7 +101,14 @@ df <- df %>%
                                                d4 == 4 ~ "Extremely")),
          bothered = as.factor(case_when(d4_rec == 0 ~ "No",
                                         d4_rec == 1 ~ "Yes"))) %>%
-  select(group, dayslink, linkstatus, yrs_education, gender, age, alcohol, alcq_30, marriage, employment, income, income_1yr, any_util, attempted_suicide, homeless, hs_grad, money_spent_on_alcohol, mh_index, num_med_problems, num_hospitilizations,bothered_by_med, bothered)
+  select(group, dayslink, linkstatus, 
+         yrs_education, gender, age, 
+         alcohol, alcq_30, marriage, 
+         employment, income, income_1yr, 
+         any_util, attempted_suicide, homeless, 
+         hs_grad, money_spent_on_alcohol,
+         mh_index, num_med_problems, 
+         num_hospitilizations,bothered_by_med, bothered)
 ```
 Note: based on our final results, we may end up removing some lines of unused variables (for the final report).
 
@@ -109,7 +122,8 @@ The plot below shows four survival probability plots separated by whether the in
 
 ```{r, message=FALSE, warning=FALSE}
 care_fit <- survfit(Surv(dayslink, linkstatus) ~ group, data=df)
-ggsurvplot_facet(care_fit, df, facet.by = c("gender", "alcohol"), pval = TRUE) + ggtitle("Survival Curves Based on Alcohol as 1st/2nd Drug and Gender")
+ggsurvplot_facet(care_fit, df, facet.by = c("gender", "alcohol"), pval = TRUE) +
+  ggtitle("Survival Curves Based on Alcohol as 1st/2nd Drug and Gender")
 ```
 Looking at the plot, we see a p-value greater than 0.05 for observations whose first drug was not alcohol and gender is female. This means we fail to reject the null hypothesis that the survival curves are equal.
 
@@ -118,18 +132,29 @@ We want to see if there are some things to keep in mind, when it comes to the Ge
 ```{r}
 df %>%
   select(gender, alcohol) %>%
-  mutate(gender_str = as.factor(case_when(gender == 1 ~ "Male", gender == 2 ~ "Female"))) %>%
-  mutate(alcohol_str = as.factor(case_when(alcohol == 0 ~ "Not First Drug", alcohol == 1 ~ "First Drug Alcohol"))) %>%
-  ggplot() + geom_bar(aes(x=gender_str, fill=alcohol)) + xlab("Gender") + ylab("Number of Observations") + ggtitle("People who Used Alcohol as First/Second Drug by Gender")
+  mutate(gender_str = as.factor(case_when(gender == 1 ~ "Male", 
+                                          gender == 2 ~ "Female"))) %>%
+  mutate(alcohol_str = as.factor(case_when(alcohol == 0 ~ "Not First Drug", 
+                                           alcohol == 1 ~ "First Drug Alcohol"))) %>%
+  ggplot() + geom_bar(aes(x=gender_str, fill=alcohol)) + 
+  xlab("Gender") + 
+  ylab("Number of Observations") + 
+  ggtitle("People who Used Alcohol as First/Second Drug by Gender")
 ```
 Note that the number of female participants are way less than the number of male participants. (talk about how this factors into not using Gender in final model)
 
 Going in another direction, here we observe the relationships mental health index and attempted suicide have on the linkstatus.
 ```{r}
 df %>%
-  mutate(linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", linkstatus == 1 ~ "Linked to Primary Care"))) %>%
+  mutate(linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", 
+                                          linkstatus == 1 ~ "Linked to Primary Care"))) %>%
   select(group, linkstatus, dayslink, income, mh_index, attempted_suicide) %>%
-  ggplot() + geom_point(aes(x=dayslink, y=mh_index, color=linkstatus)) + facet_grid(vars(attempted_suicide), vars(group)) + ylab("Mental Health Index") + xlab("Time") + ggtitle("Mental Health Index Grouped by Attemped Suicide and Study Response")
+  ggplot() +
+  geom_point(aes(x=dayslink, y=mh_index, color=linkstatus)) +
+  facet_grid(vars(attempted_suicide), vars(group)) + 
+  ylab("Mental Health Index") + 
+  xlab("Time") + 
+  ggtitle("Mental Health Index Grouped by Attemped Suicide and Study Response")
 ```
 We see a distinct separation in response variable divided by the clinic and control group. In general, more individuals in the clinic group linked to primary care sooner than the control group. On the y-axis, a lower mental health index seems to be associated with more suicide attempts.
 
@@ -137,8 +162,14 @@ Next, we look at income and first drug alcohol and relation to the linkstatus.
 ```{r}
 df %>%
   select(income, employment, alcohol, group, linkstatus) %>%
-  mutate(linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", linkstatus == 1 ~ "Linked to Primary Care")),) %>%
-  ggplot() + geom_bar(aes(x=income, fill=employment)) + facet_grid(vars(alcohol), vars(linkstatus)) + coord_flip() + ggtitle("Primary Care Status Based on Income and Alcohol 1st/2nd Drug") +  xlab("Income") + ylab("Number of Observations")
+  mutate(linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", 
+                                          linkstatus == 1 ~ "Linked to Primary Care")),) %>%
+  ggplot() + geom_bar(aes(x=income, fill=employment)) + 
+  facet_grid(vars(alcohol), vars(linkstatus)) + 
+  coord_flip() + 
+  ggtitle("Primary Care Status Based on Income and Alcohol 1st/2nd Drug") + 
+  xlab("Income") +
+  ylab("Number of Observations")
 ```
 Observe that the number of people in the $\$40,000 - \$49,000$ income bracket is much smaller than the other brackets. This could pose statistical confusion in our model building progress as the small number in that group could skew the results.
 
@@ -197,10 +228,71 @@ drop_in_dev(restricted_model, full_model, 1)
 ```
 We see that the p-value for the additive model for treatment groups and the number of medical problems is insignificant (0.07209521). Note that the p-value is relatively close to 0.05, but do not include number of medical problems because we aim to produce the simplest model. 
 
-
+Since gender has a p-value close to zero, we are interested in seeing if the additive model with alcohol will pass the drop-in-deviance test.
+```{r}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + gender + alcohol, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+The p-value is 0.1809207. This does not suggest evidence to reject the null hypothesis that $\beta_i = 0.$
 
 ### Socioeconomic Explanatory Variables
 
+The p-values from the drop-in-deviance tests do not suggest adding all of the medical based variables, except for first drink alcohol. We will look to socioeconomic variables like age, income, employment, homeless, and high school graduate. 
+
+First, age. 
+```{r}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+0.04584322 < 0.05. We reject the null hypothesis and should include age. 
+
+Next, we consider employment.
+```{r, message=FALSE, warning=FALSE}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + employment, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+A p-value of 0.06941881 means we fail to reject the null hypothesis that $\beta_i = 0$.
+
+Consider the binary variable, homeless. 
+```{r, message=FALSE, warning=FALSE}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + homeless, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+A p-value of 0.7095458 means we fail to reject the null hypothesis that $\beta_i = 0$.
+
+```{r, message=FALSE, warning=FALSE}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + income, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+A p-value of 1.733154e-08 means we reject the null hypothesis that $\beta_i = 0$. We include income in our model. 
+
+```{r}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + yrs_education, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+A p-value of 1.126592e-05 means we reject the null hypothesis that $\beta_i = 0$. We include income in our model. 
+
+```{r}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + yrs_education + hs_grad, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + yrs_education, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+A p-value of 0.08662291 means we fail to reject the null hypothesis that $\beta_i = 0$. We do not include income in our model. 
+
+
+The tentative final model is $exp\{ \beta_1group + \beta_2age + \beta_3alcohol + \beta_4income + \beta_5YearsEducation\}$. 
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education, data=df) 
+```
+Above are the coefficients for the model. Note that the the p-values are income are all greater than 0.05. In fact, the p-value for income40000-49000 is smaller than the other income coefficients by a factor of 100. One reason behind the smaller p-value is that the amount of individuals with income between 40000-49000 were less than the other income groups. 
+
+Looking the plot, "Primary Care Status Based on Income and Alcohol 1st/2nd Drug", we see a drop in the number of individuals for the 40000-49000 income group. So even though the drop-in-deviance test is significant, the outliers could be dragging the p-value down. Thus, we will not be proceeding with income.
 
 
 # Results
@@ -209,6 +301,17 @@ The Cox PH analysis should include: an interpretation of your final survival mod
 are out? What do you conclude about linking to primary care? Is there anything worth mentioning
 about how you got to your final model? What can you say about causation? What can you say about
 generalizing to a larger population?
+
+Our final model: 
+```{r}
+model1 <- coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df) 
+model1
+```
+More formally, 
+\[ h_i(t)  = h_0exp\{-1.76952\cdot \text{Group} + 0.02609\cdot\text{Age} -0.42942\cdot\text{Alcohol} - 0.11815\cdot\text{YearsOfEducation}\}. \] 
+The most drastic change in risk for $\hat{HR}$ comes from a unit increase in group. That is, a unit increase in the binary encoding, a change in the treatment group to the control group, has a decrease in risk by a factor of $exp\{-1.76952\} = 0.1704148$.
+The change in risk for a transition from alcohol being a first drug to non-alcoholic first drug decreases by $exp\{-0.42942\} = 0.6508865$.
+Last, a unit increase in years in education decreases by $exp\{-0.11815\} = 0.8885628$.
 
 
 ## New Ideas
