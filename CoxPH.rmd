@@ -200,36 +200,41 @@ G = 2*(-651.3298 - -661.2074)
 
 coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education, data=df) 
 ```
+Above are the coefficients for the model. Note that the the p-values are income are all greater than 0.05. In fact, the p-value for income40000-49000 is smaller than the other income coefficients by a factor of 100. One reason behind the smaller p-value is that the amount of individuals with income between 40000-49000 were less than the other income groups. 
 
 ```{r}
-coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education + hs_grad, data=df) %>% glance()
-G = 2*(-649.1222 - -651.3298)
+df %>% 
+  select(income, employment, alcohol) %>% 
+  ggplot() + geom_bar(aes(x=income, fill=employment)) + facet_grid(vars(alcohol)) + coord_flip()
+```
+Looking the plot, we see a drop in the number of individuals for the 40000-49000 income group. So even though the drop-in-deviance test is significant, the outliers could be dragging the p-value down. Thus, we will not be proceeding with income. 
+
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df) %>% glance()
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education + hs_grad, data=df) %>% glance()
+G = 2*(-665.9839 - -667.4519)
 1-pchisq(G, 1)
 ```
+We will not be using the high school graduate binary variable. 
+
 After running the drop-in-deviance tests, we found age, alcohol, income, years in education, and high school graduate to be significant. Based on Occam's Razor, we are interested in picking a simpler model. Thus, we will proceed with Backward Selection. 
 
-*** 5/8/21: we built a cox ph model using the step-wise method. The model below includes all the variables that passed the drop-in-deviance tests
+Our final model: 
 ```{r}
-coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education + hs_grad, data=df) 
-
-cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education + hs_grad, data=df))
-
-care_fit <- survfit(Surv(dayslink, linkstatus) ~ group + alcohol, data=df)
-ggsurvplot(care_fit, conf.int = F, fun="cloglog") + 
-  ggtitle("Survival Plot for HELP Treatment")
-
-care_fit <- survfit(Surv(dayslink, linkstatus) ~ group + income, data=df)
-ggsurvplot(care_fit, conf.int = F, fun="cloglog") + 
-  ggtitle("Survival Plot for HELP Treatment")
-
-care_fit <- survfit(Surv(dayslink, linkstatus) ~ group + hs_grad, data=df)
-ggsurvplot(care_fit, conf.int = F, fun="cloglog") + 
-  ggtitle("Survival Plot for HELP Treatment")
+model1 <- coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df) 
+model1$score
+cox.zph(model1)
+# test for proportional hazards
+cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df))
 ```
+More formally, 
 
-```{r}
-length(df$yrs_education)
-df %>% select(yrs_education) %>% drop_na()
-```
+\[ h_i(t)  = h_0exp\{-1.76952\cdot \text{Group} + 0.02609\cdot\text{Age} -0.42942\cdot\text{Alcohol} - 0.11815\cdot\text{YearsOfEducation}\}. \] 
+
+The most drastic change in risk for $\hat{HR}$ comes from a unit increase in group. That is, a unit increase in the binary encoding, a change in the treatment group to the control group, has a decrease in risk by a factor of $exp\{-1.76952\} = 0.1704148$.
+
+The change in risk for a transition from alcohol being a first drug to non-alcoholic first drug decreases by $exp\{-0.42942\} = 0.6508865$.
+
+Last, a unit increase in years in education decreases by $exp\{-0.11815\} = 0.8885628$.
 
 

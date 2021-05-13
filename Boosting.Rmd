@@ -1,0 +1,130 @@
+---
+title: "Untitled"
+output: pdf_document
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(mosaic)
+library(readr)
+library(tidyverse)
+library(broom)
+library(survival)
+library(survminer)
+library(praise)
+```
+
+```{r, warning=FALSE, message=FALSE}
+df <- read_csv("HELPdata.csv", na="*")
+```
+
+```{r, message=FALSE}
+df <- df %>%
+  mutate(yrs_education = as.numeric(a9), 
+         gender=a1, 
+         alcq_30 = as.numeric(alcq_30), 
+         marriage = as.factor(a10), 
+         employment = as.factor(a13), 
+         income = as.factor(case_when(a18 == 1 ~ "<5000", 
+                                      a18 == 2 ~ "5000-10000", 
+                                      a18 == 3 ~ "11000-19000",
+                                      a18 == 4 ~ "20000-29000",
+                                      a18 == 5 ~ "30000-39000",
+                                      a18 == 6 ~ "40000-49000",
+                                      a18 == 7 ~ "50000+")),
+         income_1yr = as.factor(case_when(a18_rec1 == 0 ~ "$19,000", 
+                                      a18_rec1 == 1 ~ "$20,000-$49,000", 
+                                      a18_rec1 == 2 ~ "$50,000")), 
+         any_util = as.factor(case_when(any_util == 0 ~ "No", any_util == 1 ~ "Yes")), 
+         attempted_suicide = as.factor(case_when(g1c == 0 ~ "No", g1c == 1 ~ "Yes")), 
+         employment = as.factor(
+           case_when(a13 == 1 ~ "Full time", 
+                     a13 == 2 ~ "Part time",
+                     a13 == 3 ~ "Student", 
+                     a13 == 4 ~ "Unemployed",
+                     a13 == 5 ~ "Ctrl_envir")), 
+         homeless = as.factor(case_when(homeless == 0 ~ "No", homeless == 1 ~ "Yes")),
+         hs_grad = as.factor(case_when(hs_grad == 0 ~ "No", hs_grad == 1 ~ "Yes")),
+         group = as.factor(case_when(group == 0 ~ "Control", group == 1 ~ "Clinic")),
+         # linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care", linkstatus == 1 ~ "Linked to Primary Care")),
+         alcohol = as.factor(case_when(alcohol == 0 ~ "Not First Drug", alcohol == 1 ~ "First Drug Alcohol")),
+         money_spent_on_alcohol = as.numeric(h16a),
+         mh_index = as.numeric(mh),
+         num_med_problems = as.numeric(d3),
+         num_hospitilizations = as.numeric(d1),
+         bothered_by_med = as.factor(case_when(d4 == 0 ~ "Not at all",
+                                               d4 == 1 ~ "Slightly",
+                                               d4 == 2 ~ "Moderately",
+                                               d4 == 3 ~ "Considerably",
+                                               d4 == 4 ~ "Extremely")),
+         bothered = as.factor(case_when(d4_rec == 0 ~ "No",
+                                        d4_rec == 1 ~ "Yes"))) %>% 
+  select(group, dayslink, linkstatus, yrs_education, gender, age, alcohol, alcq_30, marriage, employment, income, income_1yr, any_util, attempted_suicide, homeless, hs_grad, money_spent_on_alcohol, mh_index, num_med_problems, num_hospitilizations,bothered_by_med, bothered)
+```
+
+
+Bootstrapping the survival model (what are the assumptions?  what do you conclude?)
+
+## Bootstrapping the Survival Model
+
+Bootstraping is a nonparametric technique that resamples the sampled data and samples from the resampled data. It is most useful for building confidence intervals without the assumption of the central limit theory. However, one important assumption is that the observations were randomly sampled. This holds true for this study as the paper mentions 235 observations were randomized into the help clinic. From bootstrapping we hope to estimate the true parameter of the population, which are the coefficients to our proportional hazard model. 
+
+We are interested in bootstrapping the survival model because the dataset is right censored. The variable, Linkstatus, indicates whether an observation connected to primary care within 12 months. We right censor when an individual did not connect to primary care by 12 months. Given that we have censored data offers multiple resampling options. In bootstrapping, we care about the resampling method because it will directly affect our statisical inference. We will be building a survival model out of resampled data. The library "censboot" will help facilitate the various resampling algorithms. Censboot references "Bootstrap Methods and their Applications" by Davison and Hinkley (1997) for their resampling options. There are four different simulation options we will explore. They are ordinary, model, weird, and conditional. The censboot function requires some statistic to be returned. Since we are comparing multiple sampling methods, we will estimate the surval model coefficients and the loglik deviations from the model. .  We can calculate the t-staistic from the loglik deviations and then find the p-value for the Likelihood Ratio test. The null hypothesis is $H_0: \beta_1 = \beta_2 = \beta_3 = \beta_4 = 0$. The alternative hypothesis is $H_A: \text{ at least one coefficient is not zero}$. 
+
+### Ordinary Resampling
+
+As the name suggests, Ordinary resampling is sampling under a random distribution. Ordinary resapmling is appropriate when the dataset is "subject to random censorship" (Davison et al.) According to the paper we are analysis, the patients were enrolled in a randomized control trial. So if we were to use ordinary resampling, the samping distribution would be equivalent to the original data set. Below 
+
+```{r}
+cox.fun <- function(data) {
+     surv <- coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data = data)
+     out <- surv$loglik
+     out
+}
+model1_data <- df %>% select(group, age, alcohol, yrs_education, dayslink, linkstatus) %>% drop_na()
+censboot(data = model1_data, cox.fun , R = 100)
+```
+
+
+```{r}
+# Now for an example where a cox regression model has been fitted
+# the data we will look at the melanoma data of Example 7.6 from 
+# Davison and Hinkley (1997).  The fitted model assumes that there
+# is a different survival distribution for the ulcerated and 
+# non-ulcerated groups but that the thickness of the tumour has a
+# common effect.  We will also assume that the censoring distribution
+# is different in different age groups.  The statistic of interest
+# is the linear predictor.  This is returned as the values at a
+# number of equally spaced points in the range of interest.
+data(melanoma, package = "boot")
+library(splines)# for ns
+mel.cox <- coxph(Surv(time, status == 1) ~ ns(thickness, df=4) + strata(ulcer),
+                 data = melanoma)
+mel.surv <- survfit(mel.cox)
+agec <- cut(melanoma$age, c(0, 39, 49, 59, 69, 100))
+mel.cens <- survfit(Surv(time - 0.001*(status == 1), status != 1) ~
+                    strata(agec), data = melanoma)
+mel.fun <- function(d) { 
+     t1 <- ns(d$thickness, df=4)
+     cox <- coxph(Surv(d$time, d$status == 1) ~ t1+strata(d$ulcer))
+     ind <- !duplicated(d$thickness)
+     u <- d$thickness[!ind]
+     eta <- cox$linear.predictors[!ind]
+     sp <- smooth.spline(u, eta, df=20)
+     th <- seq(from = 0.25, to = 10, by = 0.25)
+     predict(sp, th)$y
+}
+mel.str <- cbind(melanoma$ulcer, agec)
+
+# this is slow!
+mel.mod <- censboot(melanoma, mel.fun, R = 499, F.surv = mel.surv,
+     G.surv = mel.cens, cox = mel.cox, strata = mel.str, sim = "model")
+# To plot the original predictor and a 95% pointwise envelope for it
+mel.env <- envelope(mel.mod)$point
+th <- seq(0.25, 10, by = 0.25)
+plot(th, mel.env[1, ],  ylim = c(-2, 2),
+     xlab = "thickness (mm)", ylab = "linear predictor", type = "n")
+lines(th, mel.mod$t0, lty = 1)
+matlines(th, t(mel.env), lty = 2)
+# }
+```
+
