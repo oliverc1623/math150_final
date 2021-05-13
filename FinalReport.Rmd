@@ -134,8 +134,25 @@ Based on the exploratory data analysis, medical and variables can influence the 
 
 ## Stepwise Regression
 
+We proceed with stepwise regression. For each potential variable, we build a coxph model including it and a model without the additional variable. Then, we take the loglik deviation from the models and run a drop-in-deviance test. The drop-in-deviance test will help us determine if an additional variable, $x_i$, should be included in the model. The $G$ statistic equals $2*(logLik_{bigger model} - logLik_{smaller model})$. Calculating degrees of freedom is taking the difference in the number of parameters of the full model minus the restricted model. Finding the p-value is the "percentage of the $X^2$ distribution that exceeds G". We calculate the p-value by finding the converse of $phcisq(...)$, so $1 - pchisq(...)$. The null and alternative hypothesis for this test is $H_0: \beta_i = 0$ and $H_a: \beta_i \neq 0$. Since there were many variables to consider, we wrote a function that takes in the full and small model and returns a p-value from the drop-in-deviance test.
+
+```{r}
+# input: (small model's glance output, big model's glance output, degrees of freedom)
+drop_in_dev <- function(smallmodel, bigmodel, df){
+  small_loglik <- smallmodel$logLik
+  big_loglik <- bigmodel$logLik
+  G = 2*(big_loglik - small_loglik)
+  return(1-pchisq(G, df))
+}
+```
+
 ### Medical Explanatory Variables
 
+```{r}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + attempted_suicide, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
 
 
 ### Socioeconomic Explanatory Variables
