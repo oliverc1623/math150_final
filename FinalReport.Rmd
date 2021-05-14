@@ -313,6 +313,20 @@ We choose to learn two new ideas, related to survival analysis. Michael will inv
 For your analysis, you should give details of what is going on, how it is relevant, what are the technical conditions, what are the conclusions,
 etc.
 
+```{r}
+cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df))
+
+cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df), transform="log")
+```
+
+
+```{r}
+ggcoxzph(cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df)))
+
+ggcoxdiagnostics(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df))
+```
+
+
 
 
 ### Bootstrapping the Survival Model
