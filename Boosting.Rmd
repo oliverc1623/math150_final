@@ -86,13 +86,32 @@ model1_data <- df %>% select(group, age, alcohol, yrs_education, dayslink, links
 censboot(data = model1_data, cox.fun , R = 499, sim = "ordinary")
 ```
 
-### Weird Bootstap
-
-The weird samlping method treats each death time as independent binomial variables. Each bionomal variable as a probability of $\frac{d_j}{n-j+1}$ probability of dying (DAvison et al.)  
-
 ### Conditional Bootstrap
 
 Conditional resampling works under the assumption that the censoring variable is unrelated to the response variable. Since we do not have some distribution to sample from, "simulations should be conditional" on the censorship pattern (Davison et al.) The pattern of the censorship can be estimated by providing the original censored data and the reversed censored data. To conditionally sample from the censorship pattern, censboot estimates failure times, which is the time an observation dies off. Each observation is censored or not censored depending on its failure time and the censor distribution. 
+
+```{r}
+cond.fun <- function(data) {
+  cox <- coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data = data)
+  c(cox$coefficients, cox$loglik)
+}
+df <- df %>% select(dayslink, linkstatus, group, age, alcohol, yrs_education) %>% mutate(group = as.numeric(group)) %>% drop_na()
+df <- df[order(df$group),]
+df <- as.data.frame(df)
+s1 <- survfit(Surv(dayslink, linkstatus) ~ group, data = df)
+s2 <- survfit(Surv(dayslink-0.001*linkstatus, 1-linkstatus) ~ 1, data = df)
+censboot(df, cond.fun, R = 499, strata = df$group,
+     F.surv = s1, G.surv = s2, sim = "cond")
+```
+
+
+### Weird Bootstap
+
+The weird samlping method treats each death time as independent binomial variables. Each binomial variable as a probability of $\frac{d_j}{n-j+1}$ probability of dying (DAvison et al.) One key advantage to using the weird resampling method is that it does not need any assumptions about the censor data.
+
+```{r}
+
+```
 
 
 ```{r}
@@ -111,16 +130,18 @@ library(survival)
 # time for the two groups.
 data(aml, package = "boot") # not the version in survival.
 aml.fun <- function(data) {
-     surv <- survfit(Surv(time, cens) ~ group, data = data)
-     out <- NULL
-     st <- 1
-     for (s in 1:length(surv$strata)) {
-          inds <- st:(st + surv$strata[s]-1)
-          md <- min(surv$time[inds[1-surv$surv[inds] >= 0.5]])
-          st <- st + surv$strata[s]
-          out <- c(out, md)
-     }
-     out
+     # surv <- survfit(Surv(time, cens) ~ group, data = data)
+     # out <- NULL
+     # st <- 1
+     # for (s in 1:length(surv$strata)) {
+     #      inds <- st:(st + surv$strata[s]-1)
+     #      md <- min(surv$time[inds[1-surv$surv[inds] >= 0.5]])
+     #      st <- st + surv$strata[s]
+     #      out <- c(out, md)
+     # }
+     # out
+  cox <- coxph(Surv(time, cens) ~ group, data = data)
+  cox$loglik
 }
 
 ggsurvplot(survfit(Surv(time, cens) ~ group, data = aml))
@@ -152,5 +173,12 @@ aml.fun1 <- function(data, str) {
 }
 aml.wei <- censboot(cbind(aml$time, aml$cens), aml.fun1, R = 499,
      strata = aml$group,  F.surv = aml.s1, sim = "weird")
+
+aml
+df <- df[order(df$group),]
+df
+aml
+summary(df)
+summary(aml)
 ```
 
