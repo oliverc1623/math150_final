@@ -6,31 +6,18 @@ bibliography: bibliography.bib
 
 # Introduction
 
-Note: might want to think more about the TITLE, after finishing the doc. Is it informative, specific and precise?
-
-BP1: What is survival analysis? What does it do?
-
 Survival analysis estimates the expected duration of time until an event occurs. An event may be death, motorcycle breakdown, etc. In this survival analysis project, we use the dataset HELPfull, which contains data from the paper "Linking alcohol- and drug-dependent adults to primary medical care: a randomized controlled trial of a multi-disciplinary health intervention in a detoxification unit."
-
-BP2: What is the dataset and key variables? What is the purpose of the research?
 
 The HELP study measures the utilization of primary medical care of adult patients from a detox program. Some patients receive a combination of treatment that is intended to increase their primary care usage. Some of the key variables include group (treatment variable), dayslink (response variable), linkstatus (censoring variable), commonly used demographic variables (gender, age, education level), and  medical variables (drug usage, mental health index, etc.).
 
-BP3: How are the variables coded?  What do you do with factor variables?  Lots of missing, what should be done about that?  Which variables are most interesting?
-
 By default, the variables are encoded as strings. In order to make plotting easier, we encoded the categorical variables as factors. That way, ggplot can distinguish each group distinctly. We drop the missing data. This is a requirement to use the censboot function. 
 
-BP4: why do we want to research anything about the HELPfull data? What is its relevance?
-
-The research is important, because it may provide insights that improve the treatment of detox programs. If more patients from detox programs can ask for medical help more often and sooner with nudging like the treatment, then it might be possible to address this societal issue more effectively. In addition, significant and positive results may give researchers more confidence to research applicable solutions to other social issues, such as homeslessness, bankruptcy, etc.
-
-BP5:  What are some of the initial goals we have in mind? What do we plan to do (exploration of variables, focus on a specific target, building a model, new thing)? Is the final paragraph a brief description of the hypothesis/goals and findings of the paper?
+The research is important, because it may provide insights that improve the treatment of detox programs. If more patients from detox programs can ask for medical help more often and sooner with nudging like the treatment, then it might be possible to address this societal issue more effectively. In addition, significant and positive results may give researchers more confidence to research applicable solutions to other social issues, such as homelessness, bankruptcy, etc.
 
 The primary goal is to build a Cox PH model that best predicts survival outcome (using primary healthcare). Our initial hypothesis is the treatment is effective at getting patients connected with primary healthcare. We want to first visualize and understand the variables in the dataset, then look for some interesting and potentially important variables to include in the final model. We will then refine the final model and apply additional techniques to examine the model, such as cox.zph function and bootstrapping techniques.
 
 
 # Methods
-Note: The methods should be a source of detail about the approaches of the authors. Procedures that have been repeated by the authors should only be listed once. Variations to the procedure should be briefly summarized.
 
 Our goal is to create a model that can predict survival outcome. Since the dataset and code are included and shared, we believe the work can be replicated. We will first visualize some data (including mutating some variables), figure out the variables we want to use, and then build the model.
 
@@ -111,7 +98,6 @@ df <- df %>%
          mh_index, num_med_problems,
          num_hospitilizations,bothered_by_med, bothered)
 ```
-Note: based on our final results, we may end up removing some lines of unused variables (for the final report).
 
 We begin by exploring some general variables in clinical research, such as age, gender, education level, and trial-specific variables, such as alcohol usage and medical conditions.
 
@@ -121,7 +107,7 @@ Since we are working with multiple categorical binary variables, we used the fac
 
 The plot below shows four survival probability plots separated by whether the individual's first drug was alcohol and gender. Gender is encoded as 1=Male and 2=Female. We mutated ALCOHOL to a string, alcohol "as first drug" or "not as first drug". The p-values represent significance for the log-rank test. A p-value less than 0.05 suggests evidence that the survival curves are not equal in favor of the alternative hypothesis, $H_0: \text{ the survival curves are equal}$.
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
 care_fit <- survfit(Surv(dayslink, linkstatus) ~ group, data=df)
 ggsurvplot_facet(care_fit, df, facet.by = c("gender", "alcohol"), pval = TRUE) +
   ggtitle("Survival Curves Based on Alcohol as 1st/2nd Drug and Gender")
@@ -130,7 +116,7 @@ Looking at the plot, we see a p-value greater than 0.05 for observations whose f
 
 We want to see if there are some things to keep in mind, when it comes to the gender variable.
 
-```{r}
+```{r, echo=FALSE}
 df %>%
   select(gender, alcohol) %>%
   mutate(gender_str = as.factor(case_when(gender == 1 ~ "Male",
@@ -146,7 +132,8 @@ df %>%
 Note that the number of female participants are much less than the number of male participants. We will take this into consideration, when building the final model.
 
 Going in another direction, here we observe the relationships mental health index and attempted suicide have on the linkstatus.
-```{r}
+
+```{r, echo=FALSE}
 df %>%
   mutate(linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care",
                                           linkstatus == 1 ~ "Linked to Primary Care"))) %>%
@@ -158,10 +145,12 @@ df %>%
   xlab("Time") +
   ggtitle("Mental Health Index Grouped by Attemped Suicide and Study Response")
 ```
+
 We see a distinct separation in response variable divided by the clinic and control group. In general, more individuals in the clinic group linked to primary care sooner than the control group. On the y-axis, a lower mental health index seems to be associated with more suicide attempts.
 
 Next, we look at income and first drug alcohol and relation to the linkstatus.
-```{r}
+
+```{r, echo=FALSE}
 df %>%
   select(income, employment, alcohol, group, linkstatus) %>%
   mutate(linkstatus = as.factor(case_when(linkstatus == 0 ~ "Did not link to primary care",
@@ -173,17 +162,16 @@ df %>%
   xlab("Income") +
   ylab("Number of Observations")
 ```
+
 Observe that the number of people in the $\$40,000 - \$49,000$ income bracket is much smaller than the other brackets. This could pose statistical confusion in our model building progress, as the small number in that group could skew results.
 
-Based on the exploratory data analysis, non-explanatory variables can influence the primary care linkstatus. For our model building, we will separate the medical and socioeconomic variables. We hypothesize that patients with more medical related problems would be inclined to connect to primary care. (anything else?)
+Based on the exploratory data analysis, non-explanatory variables can influence the primary care linkstatus. For our model building, we will separate the medical and socioeconomic variables. We hypothesize that patients with more medical related problems would be inclined to connect to primary care.
 
 ## Stepwise Regression
 
 We proceed with stepwise regression. For each potential variable, we build a coxph model with the variable and one without. Then, we take the loglik deviation from the models and run a drop-in-deviance test. The drop-in-deviance test will help us determine if this additional variable, $x_i$, should be included in the model. The $G$ statistic equals $2*(logLik_{bigger model} - logLik_{smaller model})$. Calculating degrees of freedom is taking the difference in the number of parameters of the full model minus the restricted model. Finding the p-value is the "percentage of the $X^2$ distribution that exceeds G". We calculate the p-value by finding the converse of $phcisq(...)$, or $1 - pchisq(...)$. The null and alternative hypothesis for this test is $H_0: \beta_i = 0$ and $H_a: \beta_i \neq 0$.
 
 Since there were many variables to consider, we wrote a function that takes in the full and small model and returns a p-value from the drop-in-deviance test.
-
-(very specific, very good, wonder if we need to add or trim any info)
 
 ```{r}
 # input: (small model's glance output, big model's glance output, degrees of freedom)
@@ -206,7 +194,7 @@ drop_in_dev(restricted_model, full_model, 1)
 The change in deviance is 0.3692, $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.543385, which is greater than 0.05. We fail to reject the null hypothesis and do not need this variable in the model.
 
 Next, we consider the mental health index.
-```{r}
+```{r, echo=FALSE}
 full_model <- coxph(Surv(dayslink, linkstatus) ~ group + mh_index, data=df) %>% glance()
 restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group, data=df) %>% glance()
 drop_in_dev(restricted_model, full_model, 1)
@@ -214,7 +202,7 @@ drop_in_dev(restricted_model, full_model, 1)
 The change in deviance is 0.1908, $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.6622516, which is greater than 0.05. We fail to reject the null hypothesis and do not need this variable in the model.
 
 Now, we consider gender.
-```{r}
+```{r, echo=FALSE}
 full_model <- coxph(Surv(dayslink, linkstatus) ~ group + gender, data=df) %>% glance()
 restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group, data=df) %>% glance()
 drop_in_dev(restricted_model, full_model, 1)
@@ -222,7 +210,7 @@ drop_in_dev(restricted_model, full_model, 1)
 The change in deviance is 3.1354, $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.07660959, which is greater than 0.05. Note that the p-value is close to 0.05, which suggests that there could be little evidence. We fail to reject the null hypothesis and do not need this variable in the model.
 
 We consider the variable "alcohol", or whether alcohol is the user's first or second drug.
-```{r}
+```{r, echo=FALSE}
 full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol, data=df) %>% glance()
 restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group, data=df) %>% glance()
 drop_in_dev(restricted_model, full_model, 1)
@@ -230,7 +218,7 @@ drop_in_dev(restricted_model, full_model, 1)
 The change in deviance is [1] 8.2646. $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.004042557, which is less than 0.05. We reject the null hypothesis that $\gamma=0$ in favor of $H_a: \gamma \ne 0$ and should include first drink alcohol in the model.
 
 Since gender has a p-value close to 0.05, we are interested in seeing if the additive model with alcohol will pass the drop-in-deviance test.
-```{r}
+```{r, echo=FALSE}
 full_model <- coxph(Surv(dayslink, linkstatus) ~ group + gender + alcohol, data=df) %>% glance()
 restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol, data=df) %>% glance()
 drop_in_dev(restricted_model, full_model, 1)
@@ -250,7 +238,7 @@ drop_in_dev(restricted_model, full_model, 1)
 0.04584322 < 0.05. We reject the null hypothesis and include age.
 
 Now we consider income.
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
 full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + income, data=df) %>% glance()
 restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age, data=df) %>% glance()
 drop_in_dev(restricted_model, full_model, 1)
@@ -258,27 +246,19 @@ drop_in_dev(restricted_model, full_model, 1)
 A p-value of 1.733154e-08 means we reject the null hypothesis that $\beta_i = 0$. We include income in our model.
 
 Now, the years of education.
-```{r}
+```{r, echo=FALSE}
 full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + yrs_education, data=df) %>% glance()
 restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age, data=df) %>% glance()
 drop_in_dev(restricted_model, full_model, 1)
 ```
 A p-value of 1.126592e-05 means we reject the null hypothesis that $\beta_i = 0$. We include the "years of education" variable in our model.
 
-(biggest question: how much of the above should be in Results instead, and which ones should be shortened?) FINISH LATER
-
 # Results
 
 The Cox PH analysis should include: an interpretation of your final survival model including a discussion of the sign of the coefficients (note: feel free to use interactions)
 
-Note: Is the content appropriate for a results section? Simple introduction to the scientific question. Clear description of the results for each experiment. Analysis of those results.
-
-Note: Are the results/data analyzed well? Given the data in each figure, is the interpretation accurate and logical? Is the analysis of the data thorough or are some aspects of the data ignored? Does the author make connections between ideas (graphs, models, etc.) within the text? Are the data interpreted in a larger context?
-
-Note: Figures. Are the figures appropriate for the data being discussed?. Are the figure legends and titles clear and concise?
-
 The tentative final model is $exp\{ \beta_1group + \beta_2age + \beta_3alcohol + \beta_4income + \beta_5YearsEducation\}$.
-```{r}
+```{r, echo=FALSE}
 coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education, data=df)
 ```
 Above are the coefficients for the model. Note that the the p-values of income levels are all greater than 0.05. In fact, the p-value for income40000-49000 is smaller than the other income coefficients by a factor of 100. One reason behind the smaller p-value is that the number of individuals with income between 40000-49000 are less than the other income groups.
@@ -287,7 +267,7 @@ Looking the plot, "Primary Care Status Based on Income and Alcohol 1st/2nd Drug"
 
 
 Our final model is as follows:
-```{r}
+```{r, echo=FALSE}
 df %>% drop_na()
 model1 <- coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df)
 model1 %>% tidy(conf.int = TRUE)
@@ -313,12 +293,12 @@ We choose to learn two new ideas, related to survival analysis. Michael will inv
 
 Cox PH models have an underlying assumption that hazards are proportional. The ratio between two results are constant over time, or presents a linear relationship. But hazard ratios are sometimes non-proportional, such as when KM curves cross, or one tapers off and another drops to zero.  In fact, if we do not assume a baseline hazard rate and time invariant (meaning constant) coefficients and variables, the Cox PH model will not be accurate. To test the proportionality assumption of the Cox PH model, we use the cox.zph function.
 
-The cox.zph function tests the proportionality of every (prediction) variable in the model. It does so by creating interactions with time in various time transformation. (https://stats.idre.ucla.edu/r/examples/asa/r-applied-survival-analysis-ch-6/)
-If the p-value is less than 0.05 for a coefficient, then it means the coefficient does not contribute linearly to the PH model and violates the proportionality asumption. If the p-values are big, then we do not reject the null hypothesis. This indicates the model hazard is porportional.
+The cox.zph function tests the proportionality of every (prediction) variable in the model. It does so by creating interactions with time in various time transformation. [@newtest]
+If the p-value is less than 0.05 for a coefficient, then it means the coefficient does not contribute linearly to the PH model and violates the proportionality assumption. If the p-values are big, then we do not reject the null hypothesis. This indicates the model hazard is porportional.
 
-We want to make sure that the hazards are proportional to make the Cox PH model work. If they are not, then we want to see if transforming the time variable can bring back proportionality. If such attempt is successful, we can transform the original time variable in the dataset and revise the model, without starting from scratch. (http://st47s.com/Math150/Notes/survival-analysis.html) The code is given below, note that the basic cox.zph model and the completed default cox.zph model produce the same results.
+We want to make sure that the hazards are proportional to make the Cox PH model work. If they are not, then we want to see if transforming the time variable can bring back proportionality. If such attempt is successful, we can transform the original time variable in the dataset and revise the model, without starting from scratch. [@math150] The code is given below, note that the basic cox.zph model and the completed default cox.zph model produce the same results.
 
-```{r}
+```{r, echo=FALSE}
 cox.zph(model1)
 # without tranform, it assumes transform = "km"
 # includes every condition in the vignette, the results are still the same by default settings
@@ -330,30 +310,26 @@ cox.zph((model1), transform="log")
 
 Here we see that for both methods of transformation, only group does not contribute linearly to the proportionality assumption. However, this may not be unacceptable, since group is a binary explanatory variable. We can leave it as as is. The other predictors pass the proportionality test.
 
-We also want to look at the residual plots of the model, since non-proportional hazards indicate variables that do not contribute linearly to the model. These residuals are called the Scoenfeld residuals, each predictor variable has its own plot. The plot function and the ggcoxzph function both plot the same residuals, the only difference is the former plots them separately, the latter plots them together similar to a facet function. The plots will also produce three regression lines.
+We also want to look at the residual plots of the model, since non-proportional hazards indicate variables that do not contribute linearly to the model. These residuals are called the Schoenfeld residuals, each predictor variable has its own plot. The plots will also produce three regression lines.
 
-Schoenfeld residuals essentially revert the regression process. Let's call the explanatory variable X and the response variable Y. Previously we want to predict Y given X and the residual is the difference between the predicted Y and the observed Y. With Shoenfeld residuals, we want to predict X given Y and find the difference between the predicted X and the observed X. The following article is a comprehensive source on Schoenfeld residuals with Python. (https://towardsdatascience.com/schoenfeld-residuals-the-idea-that-turned-regression-modeling-on-its-head-b1f1fd293f87)
+Schoenfeld residuals essentially revert the regression process. Let's call the explanatory variable X and the response variable Y. Previously we want to predict Y given X and the residual is the difference between the predicted Y and the observed Y. With Schoenfeld residuals, we want to predict X given Y and find the difference between the predicted X and the observed X. The following article is a comprehensive source on Schoenfeld residuals with Python. [@schoenfeld]
 
-```{r}
-plot(cox.zph(model1))
+```{r, echo=FALSE}
+# plot(cox.zph(model1))
 # the plot shows the Schoenfeld residuals in 4 plots
 ggcoxzph(cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df)))
 # the plot shows the Schoenfeld residuals in 1 big plot
 ```
 
-The mean of Schoenfeld residuals is zero, if the regression coefficients of the Cox PH model are not dependent on time. In fact, if the Cox PH model is indeed proportional, then the Schoenfeld residuals should be randomly distributed given a large dataset. We observe a more randomly distributed Schoenfeld residual plots, except the group variable. Therefore we are okay with using this Cox PH model, since group is our explanatory variable and the other predictor variables pass the proportionality test. (https://towardsdatascience.com/schoenfeld-residuals-the-idea-that-turned-regression-modeling-on-its-head-b1f1fd293f87)
+The mean of Schoenfeld residuals is zero, if the regression coefficients of the Cox PH model are not dependent on time. In fact, if the Cox PH model is indeed proportional, then the Schoenfeld residuals should be randomly distributed given a large dataset. We observe a more randomly distributed Schoenfeld residual plots, except the group variable. Therefore we are okay with using this Cox PH model, since group is our explanatory variable and the other predictor variables pass the proportionality test. [@schoenfeld]
 
 ### Bootstrapping the Survival Model
-
-Bootstrapping the survival model (what are the assumptions?  what do you conclude?)
-
-## Bootstrapping the Survival Model
 
 Bootstrapping is a nonparametric technique that resamples the sampled data and samples from the resampled data. It is most useful for building confidence intervals without the assumption of the central limit theory. However, one important assumption is that the observations were randomly sampled. This holds true for this study as the paper mentions 235 observations were randomized into the help clinic. From bootstrapping we hope to estimate the true parameter of the population, which are the coefficients to our proportional hazard model. 
 
 We are interested in bootstrapping the survival model because the dataset is right censored. The variable, Linkstatus, indicates whether an observation connected to primary care within 12 months. We right censor when an individual did not connect to primary care by 12 months. Given that we have censored data offers multiple resampling options. In bootstrapping, we care about the resampling method because it will directly affect our statistical inference. We will be building a survival model out of resampled data. The library "censboot" will help facilitate the various resampling algorithms. Censboot references "Bootstrap Methods and their Applications" by Davison and Hinkley (1997) for their resampling options. There are four different simulation options. We will explore the ordinary and conditional sampling methods. The censboot function requires some statistic to be returned. Since we are comparing multiple sampling methods, we will estimate the survival model coefficients and the loglik deviations from the model.  We can calculate the t-staistic from the loglik deviations and then find the p-value for the Likelihood Ratio test. The null hypothesis is $H_0: \beta_1 = \beta_2 = \beta_3 = \beta_4 = 0$. The alternative hypothesis is $H_A: \text{ at least one coefficient is not zero}$. 
 
-### Ordinary Resampling
+#### Ordinary Resampling
 
 As the name suggests, Ordinary resampling is sampling under a random distribution. Ordinary resapmling is appropriate when the dataset is "subject to random censorship" [@bootstrap] According to the paper we are analysis, the patients were enrolled in a randomized control trial. So if we were to use ordinary resampling, the sampling distribution would be equivalent to the original data set. Below, we bootstrap the coxph coefficients and loglik deviance using the ordinary simulation. 
 ```{r}
@@ -368,7 +344,7 @@ censboot(data = model1_data, cox.fun , R = 499, sim = "ordinary")
 ```
 The coefficients from the bootstrapped model are very similar to the original dataset. In fact, they are only a factor of 1000 off from the original model. And the loglike deviance give a p-value of 0, which means we reject the null hypothesis that the coefficients are not zero. We pass the Likelihood Ratio test. It is important to point out that the low bias usually means there is higher variance. A high variance could indicate that the model is capturing noise instead of signal. 
 
-### Conditional Bootstrap
+#### Conditional Bootstrap
 
 Conditional resampling works under the assumption that the censoring variable is unrelated to the response variable. Since we do not have some distribution to sample from, "simulations should be conditional" on the censorship pattern [@bootstrap] The pattern of the censorship can be estimated by providing the original censored data and the reversed censored data. To conditionally sample from the censorship pattern, censboot estimates failure times, which is the time an observation dies off. Each observation is censored or not censored depending on its failure time and the censor distribution. 
 
@@ -392,25 +368,6 @@ The conditional sampling method returned the same coefficients and loglik devian
 
 We hypothesized that medical related variables like age, gender, and alcohol would prompt more patients to connect to primary care. Our model building process revealed that only age and alcohol first drug passed the drop-in-deviance test. Since we had to drop multiple variables we looked towards adding socioeconomic explanatory variables. The second stepwise regression concluded with years in education passing the drop-in-deviance test. So the final additive model included the treatment group, age, alcohol first drug, and years in education. An additive model with four variables is simple and general enough to capture most data points. The significant coefficients and significant Likelihood Ratio test, lead us to conclude that there is a strong association with treatment group, age, alcohol, and years in education influencing the risk of linking to primary care. Hence, the model supports our hypothesis that medical and socioeconomic explanatory variables affect an individual's outcome to linking to primary care. As such, this research can be generalized to rehab patients in the United States with the caveat that the myriad variables warrants further research. 
 
-=======
-For your analysis, you should give details of what is going on, how it is relevant, what are the technical conditions, what are the conclusions,
-etc.
-
-### Discussion
-Does the author clearly state whether the results answer the question? (i.e. support or disprove the hypothesis?)
-Were specific data cited from the results to support each interpretation? Does the author clearly articulate the basis for
-supporting or rejecting the hypothesis ?
-Does the author adequately relate the results of the current work to previous research?
-Does the author appropriately discuss to whom the results can be generalized?
-
-### References (for new ideas)
-Are the references appropriate and of an adequate quantity?
-Are the references cited properly (both within the text and at the end of the paper)?
-
-### Writing Quality (final check in the evening, read it out loud)
-Is the paper well organized? (Paragraphs are organized in a logical manner)
-Is each paragraph well written? (Clear topic sentence, single major point)
-Is the paper generally well written? (Good use of language, sentence structure)
 
 # References
 
