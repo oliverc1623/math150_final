@@ -1,6 +1,7 @@
 ---
-title: "Survival Analysis on Linking Drug Dependent Adults to Primary Care"
+title: "Age, Alcohol, Education, and Primary Care: A Surival Analysis"
 output: pdf_document
+author: "Oliver Chang, Michael He"
 bibliography: bibliography.bib
 ---
 
@@ -145,7 +146,6 @@ df %>%
   xlab("Time") +
   ggtitle("Mental Health Index Grouped by Attemped Suicide and Study Response")
 ```
-
 We see a distinct separation in response variable divided by the clinic and control group. In general, more individuals in the clinic group linked to primary care sooner than the control group. On the y-axis, a lower mental health index seems to be associated with more suicide attempts.
 
 Next, we look at income and first drug alcohol and relation to the linkstatus.
@@ -268,7 +268,7 @@ Looking the plot, "Primary Care Status Based on Income and Alcohol 1st/2nd Drug"
 
 Our final model is as follows:
 ```{r, echo=FALSE}
-df %>% drop_na()
+# df %>% drop_na()
 model1 <- coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df)
 model1 %>% tidy(conf.int = TRUE)
 # cox.zph(model1)
