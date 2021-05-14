@@ -17,11 +17,11 @@ The HELP study measures the utilization of primary medical care of adult patient
 
 BP3: How are the variables coded?  What do you do with factor variables?  Lots of missing, what should be done about that?  Which variables are most interesting?
 
-By default, the variables are encoded as strings. In order to make plotting easier, we encoded the categorical variables as factors. That way, ggplot can distinguish each group distinctly. We drop the missing data. This is a requirement to use the censboot function. 
+Some variables are binary, some variables are coded as factors, and some variables are numeric. (what did we do with factor transformations?) (what did we do about missing data?) (most interesting variables?) FINISH LATER
 
 BP4: why do we want to research anything about the HELPfull data? What is its relevance?
 
-The research is important, because it may provide insights that improve the treatment of detox programs. If more patients from detox programs can ask for medical help more often and sooner with nudging like the treatment, then it might be possible to address this societal issue more effectively. In addition, significant and positive results may give researchers more confidence to research applicable solutions to other social issues, such as homeslessness, bankruptcy, etc.
+The research is important, because it may provide insights that improve the treatment of detox programs. If more patients from detox programs can ask for medical help more often and sooner with nudging like the treatment, then it is possible to address this societal issue more effectively. In addition, significant and positive results may give researchers more confidence to research applicable solutions to other social issues, such as homeslessness, bankruptcy, etc.
 
 BP5:  What are some of the initial goals we have in mind? What do we plan to do (exploration of variables, focus on a specific target, building a model, new thing)? Is the final paragraph a brief description of the hypothesis/goals and findings of the paper?
 
@@ -52,7 +52,7 @@ library(praise)
 df <- read_csv("HELPdata.csv", na="*")
 ```
 
-Now we will import the dataset and encode our variables into factors. 
+Now that the dataset is imported, we can select our variables of interest. Note that the original dataset has some variables encoded as characters types. We converted these variables to a factor type, so categorical variables are easily distinguishable in our plots.
 
 ```{r, message=FALSE, warning=FALSE}
 df <- df %>%
@@ -141,7 +141,6 @@ df %>%
   ylab("Number of Observations") +
   ggtitle("People who Used Alcohol as First/Second Drug by Gender")
 ```
-
 Note that the number of female participants are much less than the number of male participants. We will take this into consideration, when building the final model.
 
 Going in another direction, here we observe the relationships mental health index and attempted suicide have on the linkstatus.
@@ -228,6 +227,14 @@ drop_in_dev(restricted_model, full_model, 1)
 ```
 The change in deviance is [1] 8.2646. $(H_0: \gamma=0)$, so with one degree of freedom the p-value is 0.004042557, which is less than 0.05. We reject the null hypothesis that $\gamma=0$ in favor of $H_a: \gamma \ne 0$ and should include first drink alcohol in the model.
 
+Now we consider the number of medical problems, in addition to "alcohol".
+```{r}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + num_med_problems + alcohol, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+We see that the p-value for the additive model for treatment groups and the number of medical problems is insignificant (0.07209521). Note that the p-value is relatively close to 0.05, but do not include number of medical problems because we aim to produce the simplest model.
+
 Since gender has a p-value close to 0.05, we are interested in seeing if the additive model with alcohol will pass the drop-in-deviance test.
 ```{r}
 full_model <- coxph(Surv(dayslink, linkstatus) ~ group + gender + alcohol, data=df) %>% glance()
@@ -248,6 +255,22 @@ drop_in_dev(restricted_model, full_model, 1)
 ```
 0.04584322 < 0.05. We reject the null hypothesis and include age.
 
+Next, we consider employment.
+```{r, message=FALSE, warning=FALSE}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + employment, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+A p-value of 0.06941881 means we fail to reject the null hypothesis that $\beta_i = 0$. We do not include employment.
+
+Consider the binary variable, homeless.
+```{r, message=FALSE, warning=FALSE}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + homeless, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+A p-value of 0.7095458 means we fail to reject the null hypothesis that $\beta_i = 0$. We do not include homeless.
+
 Now we consider income.
 ```{r, message=FALSE, warning=FALSE}
 full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + income, data=df) %>% glance()
@@ -264,6 +287,23 @@ drop_in_dev(restricted_model, full_model, 1)
 ```
 A p-value of 1.126592e-05 means we reject the null hypothesis that $\beta_i = 0$. We include the "years of education" variable in our model.
 
+We want to see if the status of high school graduation should be included in the model.
+```{r}
+full_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + yrs_education + hs_grad, data=df) %>% glance()
+restricted_model <- coxph(Surv(dayslink, linkstatus) ~ group + alcohol + age + yrs_education, data=df) %>% glance()
+drop_in_dev(restricted_model, full_model, 1)
+```
+A p-value of 0.08662291 means we fail to reject the null hypothesis that $\beta_i = 0$. We do not include high school graduation in our model.
+
+
+The tentative final model is $exp\{ \beta_1group + \beta_2age + \beta_3alcohol + \beta_4income + \beta_5YearsEducation\}$.
+```{r}
+coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education, data=df)
+```
+Above are the coefficients for the model. Note that the the p-values of income levels are all greater than 0.05. In fact, the p-value for income40000-49000 is smaller than the other income coefficients by a factor of 100. One reason behind the smaller p-value is that the number of individuals with income between 40000-49000 are less than the other income groups.
+
+Looking the plot, "Primary Care Status Based on Income and Alcohol 1st/2nd Drug", we see a drop in the number of individuals for the 40000-49000 income group. So even though the drop-in-deviance test is significant, the outliers could be dragging the p-value down. Thus, we will not be proceeding with income.
+
 (biggest question: how much of the above should be in Results instead, and which ones should be shortened?) FINISH LATER
 
 # Results
@@ -276,33 +316,25 @@ Note: Are the results/data analyzed well? Given the data in each figure, is the 
 
 Note: Figures. Are the figures appropriate for the data being discussed?. Are the figure legends and titles clear and concise?
 
-The tentative final model is $exp\{ \beta_1group + \beta_2age + \beta_3alcohol + \beta_4income + \beta_5YearsEducation\}$.
-```{r}
-coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + income + yrs_education, data=df)
-```
-Above are the coefficients for the model. Note that the the p-values of income levels are all greater than 0.05. In fact, the p-value for income40000-49000 is smaller than the other income coefficients by a factor of 100. One reason behind the smaller p-value is that the number of individuals with income between 40000-49000 are less than the other income groups.
-
-Looking the plot, "Primary Care Status Based on Income and Alcohol 1st/2nd Drug", we see a drop in the number of individuals for the 40000-49000 income group. So even though the drop-in-deviance test is significant, the outliers could be dragging the p-value down. Thus, we will not be proceeding with income.
-
-
 Our final model is as follows:
 ```{r}
-df %>% drop_na()
 model1 <- coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df)
-model1 %>% tidy(conf.int = TRUE)
-# cox.zph(model1)
+model1
 ```
 More formally,
 \[ h_i(t)  = h_0exp\{-1.76952\cdot \text{Group} + 0.02609\cdot\text{Age} -0.42942\cdot\text{Alcohol} - 0.11815\cdot\text{YearsOfEducation}\}. \]
 
-The most drastic change in risk for $\hat{HR}$ comes from a unit increase in group. That is, a change from the treatment group to the control group, decreases risk of linking to primary care by a factor of $exp(-1.76952) = 0.1704148$ with $CI(0.1092994, 0.2657042)$.
-$\hat{HR}$ for a unit increase in age increases the risk of linking to primary care by a factor of $exp(0.02608945) = 1.026433,$ $CI(1.003001, 1.050412)$.
-The change in risk for a transition from alcohol being a first drug to alcohol not as a first drug decreases the risk of linking to primary care by $exp(-0.42942) = 0.6508865$, $CI(0.4385955, 0.965922)$.
-Last, a unit increase in years in education decreases the risk of linking to a primary care by $exp(-0.11815) = 0.8885628$, $CI(0.8100146, 0.9747364)$. 
+The most drastic change in risk for $\hat{HR}$ comes from a unit increase in group. That is, a change from the treatment group to the control group,  decreases risk by a factor of $exp\{-1.76952\} = 0.1704148$.
+The change in risk for a transition from alcohol being a first drug to non-alcoholic first drug decreases by $exp\{-0.42942\} = 0.6508865$.
+Last, a unit increase in years in education decreases by $exp\{-0.11815\} = 0.8885628$.
 
-The final model suggests the patients in the treatment group showed the greatest decrease in risk. Alcohol first drug, showed the second greatest reduction in risk. Since all the p-values are significant, this model provides evidence to suggests that the patients who exhibit unit increases in these variables are subject to a decrease in risk of not linking to primary care. This partially supports our initial hypothesis that medical related problems can prompt individuals to connect to primary care. Age and alcohol first drug are significant coefficients that impact the risk of linking to primary care. The only socioeconomic variable that is significant is years of education, which decrease risk but not as greatly as group or alcohol. 
 
-We do not want to imply causation. While the study was conducted in the greater Boston area over 12 months, the patients were recruited from detox units. The variables we are using are widespread so everyone can be categorized. Having fewer, general variables means we can get more data points from people. However, one draw back to the model is that it is only additive and the patients do not represent the general population. So, there could be interaction among the variables that we are not accounting more. In other words, we chose a simplified model given 777 explanatory variables. We conclude that the model can be generalized to rehab patients. 
+Which variable(s) are in? Which are out?
+
+What do you conclude about linking to primary care? Is there anything worth mentioning about how you got to your final model?
+
+What can you say about causation? What can you say about generalizing to a larger population?
+
 
 ## New Ideas
 
@@ -310,15 +342,40 @@ We choose to learn two new ideas, related to survival analysis. Michael will inv
 
 ### Cox.zph
 
-For your analysis, you should give details of what is going on, how it is relevant, what are the technical conditions, what are the conclusions,
-etc.
+Cox PH models have an underlying assumption that hazards are proportional. The ratio between two results are constant over time, or presents a linear relationship. But hazard ratios are sometimes non-proportional, such as when KM curves cross, or one tapers off and another drops to zero.  In fact, if we do not assume a baseline hazard rate and time invariant (meaning constant) coefficients and variables, the Cox PH model will not be accurate. To test the proportionality assumption of the Cox PH model, we use the cox.zph function.
+
+The cox.zph function tests the proportionality of every (prediction) variable in the model. It does so by creating interactions with time in various time transformation. (https://stats.idre.ucla.edu/r/examples/asa/r-applied-survival-analysis-ch-6/)
+If the p-value is less than 0.05 for a coefficient, then it means the coefficient does not contribute linearly to the PH model and violates the proportionality asumption. If the p-values are big, then we do not reject the null hypothesis. This indicates the model hazard is porportional.
+
+We want to make sure that the hazards are proportional to make the Cox PH model work. If they are not, then we want to see if transforming the time variable can bring back proportionality. If such attempt is successful, we can transform the original time variable in the dataset and revise the model, without starting from scratch. (http://st47s.com/Math150/Notes/survival-analysis.html) The code is given below, note that the basic cox.zph model and the completed default cox.zph model produce the same results.
 
 ```{r}
-cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df))
+cox.zph(model1)
+# without tranform, it assumes transform = "km"
 
-cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df), transform="log")
+# includes every condition in the vignette, the results are still the same by default settings
+# cox.zph(fit, transform="km", terms=TRUE, singledf=FALSE, global=TRUE)
+cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df), terms = TRUE, singledf = FALSE, global = TRUE)
+
+# model interacts with log(time)
+cox.zph((model1), transform="log")
 ```
 
+Here we see that for both methods of transformation, only group does not contribute linearly to the proportionality assumption. However, this may not be unacceptable, since group is a binary explanatory variable. We can leave it as as is. The other predictors pass the proportionality test.
+
+We also want to look at the residual plots of the model, since non-proportional hazards indicate variables that do not contribute linearly to the model. These residuals are called the Scoenfeld residuals, each predictor variable has its own plot. The plot function and the ggcoxzph function both plot the same residuals, the only difference is the former plots them separately, the latter plots them together similar to a facet function. The plots will also produce three regression lines.
+
+Schoenfeld residuals essentially revert the regression process. Let's call the explanatory variable X and the response variable Y. Previously we want to predict Y given X and the residual is the difference between the predicted Y and the observed Y. With Shoenfeld residuals, we want to predict X given Y and find the difference between the predicted X and the observed X. The following article is a comprehensive source on Schoenfeld residuals with Python. (https://towardsdatascience.com/schoenfeld-residuals-the-idea-that-turned-regression-modeling-on-its-head-b1f1fd293f87)
+
+```{r}
+plot(cox.zph(model1))
+# the plot shows the Schoenfeld residuals in 4 plots
+
+ggcoxzph(cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df)))
+# the plot shows the Schoenfeld residuals in 1 big plot
+```
+
+The mean of Schoenfeld residuals is zero, if the regression coefficients of the Cox PH model are not dependent on time. In fact, if the Cox PH model is indeed proportional, then the Schoenfeld residuals should be randomly distributed given a large dataset. We observe a more randomly distributed Schoenfeld residual plots, except the group variable. Therefore we are okay with using this Cox PH model, since group is our explanatory variable and the other predictor variables pass the proportionality test. (https://towardsdatascience.com/schoenfeld-residuals-the-idea-that-turned-regression-modeling-on-its-head-b1f1fd293f87)
 
 ```{r}
 ggcoxzph(cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df)))
@@ -326,60 +383,8 @@ ggcoxzph(cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_
 ggcoxdiagnostics(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df))
 ```
 
-
-
-
 ### Bootstrapping the Survival Model
 
-Bootstrapping the survival model (what are the assumptions?  what do you conclude?)
-
-## Bootstrapping the Survival Model
-
-Bootstraping is a nonparametric technique that resamples the sampled data and samples from the resampled data. It is most useful for building confidence intervals without the assumption of the central limit theory. However, one important assumption is that the observations were randomly sampled. This holds true for this study as the paper mentions 235 observations were randomized into the help clinic. From bootstrapping we hope to estimate the true parameter of the population, which are the coefficients to our proportional hazard model. 
-
-We are interested in bootstrapping the survival model because the dataset is right censored. The variable, Linkstatus, indicates whether an observation connected to primary care within 12 months. We right censor when an individual did not connect to primary care by 12 months. Given that we have censored data offers multiple resampling options. In bootstrapping, we care about the resampling method because it will directly affect our statisical inference. We will be building a survival model out of resampled data. The library "censboot" will help facilitate the various resampling algorithms. Censboot references "Bootstrap Methods and their Applications" by Davison and Hinkley (1997) for their resampling options. There are four different simulation options we will explore. They are ordinary, model, weird, and conditional. The censboot function requires some statistic to be returned. Since we are comparing multiple sampling methods, we will estimate the surval model coefficients and the loglik deviations from the model. .  We can calculate the t-staistic from the loglik deviations and then find the p-value for the Likelihood Ratio test. The null hypothesis is $H_0: \beta_1 = \beta_2 = \beta_3 = \beta_4 = 0$. The alternative hypothesis is $H_A: \text{ at least one coefficient is not zero}$. 
-
-### Ordinary Resampling
-
-As the name suggests, Ordinary resampling is sampling under a random distribution. Ordinary resapmling is appropriate when the dataset is "subject to random censorship" (Davison et al.) According to the paper we are analysis, the patients were enrolled in a randomized control trial. So if we were to use ordinary resampling, the samping distribution would be equivalent to the original data set. Below 
-
-```{r}
-cox.fun <- function(data) {
-     data <- data %>% drop_na()
-     model <- coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data = data)
-     out <- c(model$coefficients, model$loglik)
-     out
-}
-model1_data <- df %>% select(group, age, alcohol, yrs_education, dayslink, linkstatus) %>% drop_na()
-censboot(data = model1_data, cox.fun , R = 499, sim = "ordinary")
-```
-
-
-### Conditional Bootstrap
-
-Conditional resampling works under the assumption that the censoring variable is unrelated to the response variable. Since we do not have some distribution to sample from, "simulations should be conditional" on the censorship pattern (Davison et al.) The pattern of the censorship can be estimated by providing the original censored data and the reversed censored data. To conditionally sample from the censorship pattern, censboot estimates failure times, which is the time an observation dies off. Each observation is censored or not censored depending on its failure time and the censor distribution. 
-
-```{r}
-cond.fun <- function(data) {
-  cox <- coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data = data)
-  c(cox$coefficients, cox$loglik)
-}
-df <- df %>% select(dayslink, linkstatus, group, age, alcohol, yrs_education) %>% mutate(group = as.numeric(group)) %>% drop_na()
-df <- df[order(df$group),]
-df <- as.data.frame(df)
-s1 <- survfit(Surv(dayslink, linkstatus) ~ group, data = df)
-s2 <- survfit(Surv(dayslink-0.001*linkstatus, 1-linkstatus) ~ 1, data = df)
-censboot(df, cond.fun, R = 499, strata = df$group,
-     F.surv = s1, G.surv = s2, sim = "cond")
-```
-
-
-# Discussion 
-
-We hypothesized that 
-
-
-=======
 For your analysis, you should give details of what is going on, how it is relevant, what are the technical conditions, what are the conclusions,
 etc.
 
