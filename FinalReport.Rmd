@@ -1,6 +1,7 @@
 ---
 title: "Survival Analysis on Linking Drug Dependent Adults to Primary Care"
 output: pdf_document
+bibliography: bibliography.bib
 ---
 
 # Introduction
@@ -47,7 +48,7 @@ library(broom)
 library(survival)
 library(survminer)
 library(praise)
-
+library(boot)
 # import the dataset HELPFUL. Encode NAs as "*"
 df <- read_csv("HELPdata.csv", na="*")
 ```
@@ -314,21 +315,19 @@ For your analysis, you should give details of what is going on, how it is releva
 etc.
 
 
-
 ### Bootstrapping the Survival Model
 
 Bootstrapping the survival model (what are the assumptions?  what do you conclude?)
 
 ## Bootstrapping the Survival Model
 
-Bootstraping is a nonparametric technique that resamples the sampled data and samples from the resampled data. It is most useful for building confidence intervals without the assumption of the central limit theory. However, one important assumption is that the observations were randomly sampled. This holds true for this study as the paper mentions 235 observations were randomized into the help clinic. From bootstrapping we hope to estimate the true parameter of the population, which are the coefficients to our proportional hazard model. 
+Bootstrapping is a nonparametric technique that resamples the sampled data and samples from the resampled data. It is most useful for building confidence intervals without the assumption of the central limit theory. However, one important assumption is that the observations were randomly sampled. This holds true for this study as the paper mentions 235 observations were randomized into the help clinic. From bootstrapping we hope to estimate the true parameter of the population, which are the coefficients to our proportional hazard model. 
 
-We are interested in bootstrapping the survival model because the dataset is right censored. The variable, Linkstatus, indicates whether an observation connected to primary care within 12 months. We right censor when an individual did not connect to primary care by 12 months. Given that we have censored data offers multiple resampling options. In bootstrapping, we care about the resampling method because it will directly affect our statisical inference. We will be building a survival model out of resampled data. The library "censboot" will help facilitate the various resampling algorithms. Censboot references "Bootstrap Methods and their Applications" by Davison and Hinkley (1997) for their resampling options. There are four different simulation options we will explore. They are ordinary, model, weird, and conditional. The censboot function requires some statistic to be returned. Since we are comparing multiple sampling methods, we will estimate the surval model coefficients and the loglik deviations from the model. .  We can calculate the t-staistic from the loglik deviations and then find the p-value for the Likelihood Ratio test. The null hypothesis is $H_0: \beta_1 = \beta_2 = \beta_3 = \beta_4 = 0$. The alternative hypothesis is $H_A: \text{ at least one coefficient is not zero}$. 
+We are interested in bootstrapping the survival model because the dataset is right censored. The variable, Linkstatus, indicates whether an observation connected to primary care within 12 months. We right censor when an individual did not connect to primary care by 12 months. Given that we have censored data offers multiple resampling options. In bootstrapping, we care about the resampling method because it will directly affect our statistical inference. We will be building a survival model out of resampled data. The library "censboot" will help facilitate the various resampling algorithms. Censboot references "Bootstrap Methods and their Applications" by Davison and Hinkley (1997) for their resampling options. There are four different simulation options. We will explore the ordinary and conditional sampling methods. The censboot function requires some statistic to be returned. Since we are comparing multiple sampling methods, we will estimate the survival model coefficients and the loglik deviations from the model.  We can calculate the t-staistic from the loglik deviations and then find the p-value for the Likelihood Ratio test. The null hypothesis is $H_0: \beta_1 = \beta_2 = \beta_3 = \beta_4 = 0$. The alternative hypothesis is $H_A: \text{ at least one coefficient is not zero}$. 
 
 ### Ordinary Resampling
 
-As the name suggests, Ordinary resampling is sampling under a random distribution. Ordinary resapmling is appropriate when the dataset is "subject to random censorship" (Davison et al.) According to the paper we are analysis, the patients were enrolled in a randomized control trial. So if we were to use ordinary resampling, the samping distribution would be equivalent to the original data set. Below 
-
+As the name suggests, Ordinary resampling is sampling under a random distribution. Ordinary resapmling is appropriate when the dataset is "subject to random censorship" [@bootstrap] According to the paper we are analysis, the patients were enrolled in a randomized control trial. So if we were to use ordinary resampling, the sampling distribution would be equivalent to the original data set. Below, we bootstrap the coxph coefficients and loglik deviance using the ordinary simulation. 
 ```{r}
 cox.fun <- function(data) {
      data <- data %>% drop_na()
@@ -339,12 +338,13 @@ cox.fun <- function(data) {
 model1_data <- df %>% select(group, age, alcohol, yrs_education, dayslink, linkstatus) %>% drop_na()
 censboot(data = model1_data, cox.fun , R = 499, sim = "ordinary")
 ```
-
+The coefficients from the bootstrapped model are very similar to the original dataset. In fact, they are only a factor of 1000 off from the original model. And the loglike deviance give a p-value of 0, which means we reject the null hypothesis that the coefficients are not zero. We pass the Likelihood Ratio test. It is important to point out that the low bias usually means there is higher variance. A high variance could indicate that the model is capturing noise instead of signal. 
 
 ### Conditional Bootstrap
 
-Conditional resampling works under the assumption that the censoring variable is unrelated to the response variable. Since we do not have some distribution to sample from, "simulations should be conditional" on the censorship pattern (Davison et al.) The pattern of the censorship can be estimated by providing the original censored data and the reversed censored data. To conditionally sample from the censorship pattern, censboot estimates failure times, which is the time an observation dies off. Each observation is censored or not censored depending on its failure time and the censor distribution. 
+Conditional resampling works under the assumption that the censoring variable is unrelated to the response variable. Since we do not have some distribution to sample from, "simulations should be conditional" on the censorship pattern [@bootstrap] The pattern of the censorship can be estimated by providing the original censored data and the reversed censored data. To conditionally sample from the censorship pattern, censboot estimates failure times, which is the time an observation dies off. Each observation is censored or not censored depending on its failure time and the censor distribution. 
 
+Here is the estimated coefficients and loglik using the conditional coefficients. 
 ```{r}
 cond.fun <- function(data) {
   cox <- coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data = data)
@@ -358,12 +358,11 @@ s2 <- survfit(Surv(dayslink-0.001*linkstatus, 1-linkstatus) ~ 1, data = df)
 censboot(df, cond.fun, R = 499, strata = df$group,
      F.surv = s1, G.surv = s2, sim = "cond")
 ```
-
+The conditional sampling method returned the same coefficients and loglik deviance as the ordinary resampled and original model. One noteworthy difference is that the bias is much bigger in the bootstrapped model using conditional simulation. A larger bias suggests a lower variance, which could miss data signal. 
 
 # Discussion 
 
-We hypothesized that 
-
+We hypothesized that medical related variables like age, gender, and alcohol would prompt more patients to connect to primary care. Our model building process revealed that only age and alcohol first drug passed the drop-in-deviance test. Since we had to drop multiple variables we looked towards adding socioeconomic explanatory variables. The second stepwise regression concluded with years in education passing the drop-in-deviance test. So the final additive model included the treatment group, age, alcohol first drug, and years in education. An additive model with four variables is simple and general enough to capture most data points. The significant coefficients and significant Likelihood Ratio test, lead us to conclude that there is a strong association with treatment group, age, alcohol, and years in education influencing the risk of linking to primary care. Hence, the model supports our hypothesis that medical and socioeconomic explanatory variables affect an individual's outcome to linking to primary care. As such, this research can be generalized to rehab patients in the United States with the caveat that the myriad variables warrants further research. 
 
 =======
 For your analysis, you should give details of what is going on, how it is relevant, what are the technical conditions, what are the conclusions,
@@ -384,3 +383,9 @@ Are the references cited properly (both within the text and at the end of the pa
 Is the paper well organized? (Paragraphs are organized in a logical manner)
 Is each paragraph well written? (Clear topic sentence, single major point)
 Is the paper generally well written? (Good use of language, sentence structure)
+
+# References
+
+---
+nocite: '@*'
+---
