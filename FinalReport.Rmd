@@ -311,9 +311,37 @@ We choose to learn two new ideas, related to survival analysis. Michael will inv
 
 ### Cox.zph
 
-For your analysis, you should give details of what is going on, how it is relevant, what are the technical conditions, what are the conclusions,
-etc.
+Cox PH models have an underlying assumption that hazards are proportional. The ratio between two results are constant over time, or presents a linear relationship. But hazard ratios are sometimes non-proportional, such as when KM curves cross, or one tapers off and another drops to zero.  In fact, if we do not assume a baseline hazard rate and time invariant (meaning constant) coefficients and variables, the Cox PH model will not be accurate. To test the proportionality assumption of the Cox PH model, we use the cox.zph function.
 
+The cox.zph function tests the proportionality of every (prediction) variable in the model. It does so by creating interactions with time in various time transformation. (https://stats.idre.ucla.edu/r/examples/asa/r-applied-survival-analysis-ch-6/)
+If the p-value is less than 0.05 for a coefficient, then it means the coefficient does not contribute linearly to the PH model and violates the proportionality asumption. If the p-values are big, then we do not reject the null hypothesis. This indicates the model hazard is porportional.
+
+We want to make sure that the hazards are proportional to make the Cox PH model work. If they are not, then we want to see if transforming the time variable can bring back proportionality. If such attempt is successful, we can transform the original time variable in the dataset and revise the model, without starting from scratch. (http://st47s.com/Math150/Notes/survival-analysis.html) The code is given below, note that the basic cox.zph model and the completed default cox.zph model produce the same results.
+
+```{r}
+cox.zph(model1)
+# without tranform, it assumes transform = "km"
+# includes every condition in the vignette, the results are still the same by default settings
+# cox.zph(fit, transform="km", terms=TRUE, singledf=FALSE, global=TRUE)
+cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df), terms = TRUE, singledf = FALSE, global = TRUE)
+# model interacts with log(time)
+cox.zph((model1), transform="log")
+```
+
+Here we see that for both methods of transformation, only group does not contribute linearly to the proportionality assumption. However, this may not be unacceptable, since group is a binary explanatory variable. We can leave it as as is. The other predictors pass the proportionality test.
+
+We also want to look at the residual plots of the model, since non-proportional hazards indicate variables that do not contribute linearly to the model. These residuals are called the Scoenfeld residuals, each predictor variable has its own plot. The plot function and the ggcoxzph function both plot the same residuals, the only difference is the former plots them separately, the latter plots them together similar to a facet function. The plots will also produce three regression lines.
+
+Schoenfeld residuals essentially revert the regression process. Let's call the explanatory variable X and the response variable Y. Previously we want to predict Y given X and the residual is the difference between the predicted Y and the observed Y. With Shoenfeld residuals, we want to predict X given Y and find the difference between the predicted X and the observed X. The following article is a comprehensive source on Schoenfeld residuals with Python. (https://towardsdatascience.com/schoenfeld-residuals-the-idea-that-turned-regression-modeling-on-its-head-b1f1fd293f87)
+
+```{r}
+plot(cox.zph(model1))
+# the plot shows the Schoenfeld residuals in 4 plots
+ggcoxzph(cox.zph(coxph(Surv(dayslink, linkstatus) ~ group + age + alcohol + yrs_education, data=df)))
+# the plot shows the Schoenfeld residuals in 1 big plot
+```
+
+The mean of Schoenfeld residuals is zero, if the regression coefficients of the Cox PH model are not dependent on time. In fact, if the Cox PH model is indeed proportional, then the Schoenfeld residuals should be randomly distributed given a large dataset. We observe a more randomly distributed Schoenfeld residual plots, except the group variable. Therefore we are okay with using this Cox PH model, since group is our explanatory variable and the other predictor variables pass the proportionality test. (https://towardsdatascience.com/schoenfeld-residuals-the-idea-that-turned-regression-modeling-on-its-head-b1f1fd293f87)
 
 ### Bootstrapping the Survival Model
 
