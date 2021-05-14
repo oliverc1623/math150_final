@@ -319,3 +319,10 @@ Last, a unit increase in years in education decreases by $exp\{-0.11815\} = 0.88
 ### Cox.zph
 
 ### Bootstrapping the Survival Model
+
+
+# Discussion 
+
+We hypothesized that 
+
+
